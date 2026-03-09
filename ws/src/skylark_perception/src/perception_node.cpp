@@ -141,6 +141,7 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
     float confidence_threshold_;
 
     void image_callback(const sensor_msgs::msg::Image::SharedPtr message){
+        //TODO: Add NMS at the end 
         // Creating a cv_bridge to convert the ROS image message into a matrix
         cv_bridge::CvImagePtr cv_image_ptr;
         cv::Mat input_image;
@@ -253,7 +254,7 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
 
 int main(int argc, char* argv[]){
     rclcpp::init(argc, argv);
-    rclcpp::executors::SingleThreadedExecutor executor;
+    rclcpp::executors::MultiThreadedExecutor executor;
     auto node = std::make_shared<PerceptionNode>(rclcpp::NodeOptions());
     executor.add_node(node->get_node_base_interface());
     executor.spin();
