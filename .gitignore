@@ -37,5 +37,25 @@
 *.out
 *.app
 
-# debug information files
+# Debug information files
 *.dwo
+
+# ROS2 / colcon build artifacts
+ws/build/
+ws/install/
+ws/log/
+
+# ONNX model files (large binaries — store separately)
+*.onnx
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# VSCode
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db

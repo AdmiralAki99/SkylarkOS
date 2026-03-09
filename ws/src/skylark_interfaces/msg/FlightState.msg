@@ -1,0 +1,5 @@
+geometry_msgs/PoseStamped pose
+geometry_msgs/TwistStamped velocity
+float32 battery_percentage
+string mode
+bool armed

@@ -1,0 +1,11 @@
+geometry_msgs/PoseStamped[] waypoints
+---
+# What is returned when it is finished
+bool success
+uint32 waypoints_completed
+string message
+---
+# Feedback during the long action (Current state)
+uint32 current_waypoint
+uint32 total_waypoints
+float32 distance_to_next_waypoint
