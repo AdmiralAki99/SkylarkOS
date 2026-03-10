@@ -19,6 +19,8 @@
 
 #define DETECTION_TIMER_MS 500
 
+std::vector<skylark_interfaces::msg::Detection> non_max_suppression(std::vector<skylark_interfaces::msg::Detection>& detections, float iou_threshold);
+float compute_iou(skylark_interfaces::msg::Detection& a, skylark_interfaces::msg::Detection& b);
 class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
     public:
         explicit PerceptionNode(const rclcpp::NodeOptions & options): rclcpp_lifecycle::LifecycleNode("perception_node", options), env_(ORT_LOGGING_LEVEL_WARNING, "perception_node"){
@@ -32,6 +34,7 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
             declare_parameter("input_width", 300);
             declare_parameter("input_height", 300);
             declare_parameter("confidence_threshold", 0.5f);
+            declare_parameter("nms_threshold", 0.5f);
 
             // Get the model path from the parameters
             std::string model_path = get_parameter("model_path").as_string();
@@ -42,6 +45,9 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
 
             // Get the confidence threshold from the parameters
             confidence_threshold_ = get_parameter("confidence_threshold").as_double();
+
+            // Get the NMS threshold from the parameters
+            nms_threshold_ = get_parameter("nms_threshold").as_double();
 
             // Validating the model path
             if(model_path.empty()){
@@ -139,6 +145,7 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
     int input_width_;
     int input_height_;
     float confidence_threshold_;
+    float nms_threshold_;
 
     void image_callback(const sensor_msgs::msg::Image::SharedPtr message){
         //TODO: Add NMS at the end 
@@ -227,6 +234,8 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
 
         }
 
+        detection_array_message.detections = non_max_suppression(detection_array_message.detections, nms_threshold_);
+
         detection_publisher_->publish(detection_array_message);
 
         // Publishing the original frame with the detections (for visualization purposes)
@@ -234,10 +243,10 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
 
         for(const auto& detection: detection_array_message.detections){
             // Getting the box from the detections
-            int x1 = static_cast<int>(detection.x1);
-            int y1 = static_cast<int>(detection.y1);
-            int x2 = static_cast<int>(detection.x2);
-            int y2 = static_cast<int>(detection.y2);
+            int x1 = static_cast<int>(detection.x1 * input_width_);
+            int y1 = static_cast<int>(detection.y1 * input_height_);
+            int x2 = static_cast<int>(detection.x2 * input_width_);
+            int y2 = static_cast<int>(detection.y2 * input_height_);
 
             // Adding the detection on the image
             cv::rectangle(annotated_image, cv::Point(x1,y1), cv::Point(x2, y2), cv::Scalar(0, 255, 0), 2);
@@ -250,7 +259,70 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
         image_publisher_->publish(*annotated_image_message);
         
     }
+
+
 };
+
+std::vector<skylark_interfaces::msg::Detection> non_max_suppression(std::vector<skylark_interfaces::msg::Detection>& detections, float iou_threshold){
+    // Need to first sort the best boxes based on the scores that are there
+    std::sort(detections.begin(), detections.end(), [](const skylark_interfaces::msg::Detection& a, const skylark_interfaces::msg::Detection& b){
+        return a.confidence > b.confidence;
+    });
+
+    // Creating a output vector
+    std::vector<skylark_interfaces::msg::Detection> kept;
+    std::vector<bool> suppressed(detections.size(), false);
+
+    // Iterate over every detection
+    for(size_t  outer_index=0 ; outer_index < detections.size(); outer_index++){
+        // Checking if the outer box is suppressed
+        if(suppressed[outer_index]){
+            continue;
+        }
+
+        // This box is still in contention, so add it to the kept
+        kept.push_back(detections[outer_index]);
+
+        // Checking every other box after
+        for(size_t  inner_index = outer_index + 1; inner_index < detections.size(); inner_index++){
+            // Checking if the box is suppressed
+            if(suppressed[inner_index]){
+                continue;
+            }
+
+            float iou = compute_iou(detections[outer_index], detections[inner_index]);
+
+            // Now checking if the IoU is over the threshold
+            if(iou > iou_threshold){
+                suppressed[inner_index] = true;
+            }
+        }
+    }
+
+    return kept;
+}
+
+float compute_iou(skylark_interfaces::msg::Detection& a, skylark_interfaces::msg::Detection& b){
+    // Calculating a rectangle
+    cv::Rect2f rect_a(a.x1, a.y1, a.x2 - a.x1, a.y2 - a.y1);
+    cv::Rect2f rect_b(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
+
+    // Calculating the intersection
+    cv::Rect2f intersection = rect_a & rect_b;
+    float intersection_area = intersection.area();
+
+    if(intersection_area == 0.0){
+        return 0.0;
+    }
+
+    float union_area = rect_a.area() + rect_b.area() - intersection_area;
+
+    if(union_area > 0.0){
+        return intersection_area / union_area; // Calculating IoU
+    }else{
+        return 0.0;
+    }
+}
 
 int main(int argc, char* argv[]){
     rclcpp::init(argc, argv);
