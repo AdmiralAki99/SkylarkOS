@@ -123,6 +123,9 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
             image_publisher_.reset();
             detection_publisher_.reset();
 
+            RCLCPP_INFO(get_logger(), "Reset Complete for detections publisher");
+            RCLCPP_INFO(get_logger(), "Reset Complete for image publisher");
+
             // Reset the ONNX session to free resources
             session_.reset();
             RCLCPP_INFO(get_logger(), "Cleaned up ONNX session and freed resources.");
@@ -148,7 +151,6 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
     float nms_threshold_;
 
     void image_callback(const sensor_msgs::msg::Image::SharedPtr message){
-        //TODO: Add NMS at the end 
         // Creating a cv_bridge to convert the ROS image message into a matrix
         cv_bridge::CvImagePtr cv_image_ptr;
         cv::Mat input_image;
