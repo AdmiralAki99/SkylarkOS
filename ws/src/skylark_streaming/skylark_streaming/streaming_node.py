@@ -45,13 +45,15 @@ class StreamingNode(Node):
         # Encode to JPEG
         is_successful, img_encoded = cv.imencode('.jpg', image)
         
+        self.get_logger().info(f'JPEG encoding status: {"SUCCESS" if is_successful else "FAILED"}')
+        
         # Writing the encoded jpeg string to bytes
         jpeg_bytes = img_encoded.tobytes()
         
         # Need to save the last frame without causing race conditions
         self._frame = self._frame + 1
-        if self._frame % 30 == 0:
-            self.get_logger().info(f'Streaming — frames received: {self._frame}')
+        # if self._frame % 30 == 0:
+        #     self.get_logger().info(f'Streaming — frames received: {self._frame}')
         with self._synchronization_lock:
             self._last_frame = jpeg_bytes
             
@@ -90,6 +92,7 @@ class MJPEGHandler(BaseHTTPRequestHandler):
                 self.wfile.write(b'\r\n')
             except BrokenPipeError:
                 self.server.node.get_logger().info(f'Client disconnected: {self.client_address}')
+                break
 
 def main(args= None):
     rclpy.init(args=args)
