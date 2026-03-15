@@ -16,6 +16,8 @@ set(msg_files
   "msg/Detection.msg"
   "msg/DetectionArray.msg"
   "msg/FlightState.msg"
+  "msg/Track.msg"
+  "msg/TrackArray.msg"
 )
 
 set(srv_files
