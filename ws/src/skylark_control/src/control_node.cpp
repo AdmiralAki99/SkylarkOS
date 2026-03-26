@@ -17,6 +17,8 @@
 
 #include "std_srvs/srv/trigger.hpp"
 
+#include "pid_controller.hpp"
+
 using namespace std::chrono_literals;
 
 // Definitions for some commands
@@ -41,6 +43,11 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
         declare_parameter("lateral_gain", 0.5f);
         declare_parameter("distance_gain", 1.0f);
         declare_parameter("target_bbox_height_ratio", 0.38f);
+        declare_parameter("kp_lateral", 1.0f);
+        declare_parameter("kd_lateral", 0.1f);
+        declare_parameter("kp_distance", 1.0f);
+        declare_parameter("kd_distance", 0.1f);
+        declare_parameter("max_velocity", 2.0f);
 
         // Getting the parameters for the node
         offboard_setpoint_threshold_ = get_parameter("offboard_click_threshold").as_int();
@@ -50,6 +57,12 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
         lateral_gain_ = get_parameter("lateral_gain").as_double();
         distance_gain_ = get_parameter("distance_gain").as_double();
         target_bbox_height_ratio_ = get_parameter("target_bbox_height_ratio").as_double();
+
+        kp_lateral_ = get_parameter("kp_lateral").as_double();
+        kd_lateral_ = get_parameter("kd_lateral").as_double();
+        kp_distance_ = get_parameter("kp_distance").as_double();
+        kd_distance_ = get_parameter("kd_distance").as_double();
+        max_velocity_ = get_parameter("max_velocity").as_double();
 
         RCLCPP_INFO(get_logger(), "Set the offboard setpoint counter.");
         RCLCPP_INFO(get_logger(), "Initialized the takeoff altitude for the drone.");
@@ -114,6 +127,10 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
 
         RCLCPP_INFO(get_logger(), "Created the takeoff service.");
 
+        // Creating the PID Controllers
+        pid_lateral_ = PIDController(kp_lateral_,kd_lateral_, 0.05f);
+        pid_distance_ = PIDController(kp_distance_,kd_distance_,0.05f);
+
         return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
     }
 
@@ -171,6 +188,9 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
     float distance_gain_;
     float target_bbox_height_ratio_;
 
+    float command_vx_ = 0.0f;
+    float command_vy_ = 0.0f;
+
 
     int offboard_setpoint_counter_ = 0;
     int offboard_setpoint_threshold_;
@@ -193,10 +213,22 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr takeoff_service_;
     rclcpp::TimerBase::SharedPtr timer_;
 
+    /*
+    * PID Controller variables for the control node
+    */
+   PIDController pid_lateral_;
+   PIDController pid_distance_;
+   float max_velocity_;
+   float kp_lateral_;
+   float kp_distance_;
+   float kd_lateral_;
+   float kd_distance_;
+
+
     void timer_callback(){
         // PX4 has a deadman's switch built in so the offboard control needs to be published every now and then to stop it from dying.
         publish_offboard_control_mode();
-        publish_trajectory_setpoint();
+        publish_trajectory_setpoint(command_vx_,command_vy_, 0.0f, target_z_);
         manage_state_machine();
     }
 
@@ -227,10 +259,11 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
         vehicle_command_publisher_->publish(message);
     }
 
-    void publish_trajectory_setpoint(){
+    void publish_trajectory_setpoint(float velocity_x, float velocity_y, float velocity_z, float z_hold){
        // Helper to send the setpoint information to the PX4 controller
        auto message = px4_msgs::msg::TrajectorySetpoint();
-       message.position = {target_x_, target_y_, target_z_};
+       message.position = {NAN, NAN, z_hold};
+       message.velocity = {velocity_x, velocity_y, velocity_z};
        message.yaw = 0.0f;
        message.timestamp = this->get_clock()->now().nanoseconds() / 1000;
        trajectory_setpoint_publisher_->publish(message);
@@ -239,6 +272,7 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
     void publish_offboard_control_mode(){
         auto message = px4_msgs::msg::OffboardControlMode();
         message.position = true;
+        message.velocity = true;
         message.timestamp = this->get_clock()->now().nanoseconds() / 1000;
         // Now publishing the message
         offboard_control_mode_publisher_->publish(message);
@@ -281,6 +315,11 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
                     RCLCPP_INFO(get_logger(), "Drone reached the target takeoff altitude");
                     // Set the mode to flying
                     flight_state_ = FlightState::FLYING;
+                    // Need to reset the PID's for when triggering landings and takeoffs
+                    pid_distance_.reset();
+                    pid_lateral_.reset();
+                    command_vx_ = 0.0f;
+                    command_vy_ = 0.0f;
                 }
             break;
             case FlightState::FLYING:
@@ -288,7 +327,11 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
                 // TODO: Implement all the different control gestures and commands
                 // Handling the tracking boxes
                 if(latest_tracks_.tracks.empty()){
-
+                    // There is no person to follow
+                    command_vx_ = 0.0;
+                    command_vy_ = 0.0;
+                    pid_distance_.reset();
+                    pid_lateral_.reset();
                 }else{
                     // There are tracks to handle
                     float best_confidence = -1.0;
@@ -316,10 +359,29 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
                         float error_x = coordinate[0] - 0.5f;
                         float error_height = coordinate[3] - target_bbox_height_ratio_;
                     
-                        target_y_ = current_y_ + error_x * lateral_gain_;
-                        target_x_ = current_x_+ error_height * distance_gain_;
-                    }
+                        // Need to send this info to the PID
+                        float velocity_y = pid_lateral_.compute(error_x);
+                        float velocity_x = pid_distance_.compute(error_height);
 
+                        // Adding clamping to stop extreme changes
+                        velocity_x = std::clamp(velocity_x, -max_velocity_, max_velocity_);
+                        velocity_y = std::clamp(velocity_y, -max_velocity_, max_velocity_);
+
+                        RCLCPP_INFO(get_logger(), 
+                        "FLYING: cx=%.3f bbox_h=%.3f err_x=%.3f err_dist=%.3f tx=%.3f ty=%.3f",
+                            coordinate[0],      // center x in frame
+                            coordinate[3],      // bbox height
+                            error_x,            // lateral error
+                            error_height,       // distance error
+                            velocity_x,          // resulting velocity x
+                            velocity_y           // resulting velocity y
+                        );
+
+                        // Assigning it
+                        command_vx_ = velocity_x;
+                        command_vy_ = velocity_y;
+                        log_direction(command_vx_, command_vy_);
+                    }
                     
                 }
             break;
@@ -350,7 +412,7 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
     /* 
     * These are the services that are used by the user to trigger services on the control model.
     */
-    void landing_trigger(const std::shared_ptr<std_srvs::srv::Trigger::Request> request, std::shared_ptr<std_srvs::srv::Trigger::Response> response){
+    void landing_trigger(const std::shared_ptr<std_srvs::srv::Trigger::Request>, std::shared_ptr<std_srvs::srv::Trigger::Response> response){
         // This is handling the service that will be sent by the user or me to have it land.
         // First checking if the drone is even in the correct state to land in
         if(flight_state_ == FlightState::FLYING){
@@ -371,7 +433,7 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
         }
     }
 
-    void takeoff_trigger(const std::shared_ptr<std_srvs::srv::Trigger::Request> request, std::shared_ptr<std_srvs::srv::Trigger::Response> response){
+    void takeoff_trigger(const std::shared_ptr<std_srvs::srv::Trigger::Request>, std::shared_ptr<std_srvs::srv::Trigger::Response> response){
         // This handles the take off service that will be triggered by the user or me to have it land
         // Checking if the drone is disarmed
         if(flight_state_ == FlightState::DISARMED){
@@ -394,9 +456,9 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
 
     std::vector<float> compute_center_coordinates(const skylark_interfaces::msg::Track& track){
         float x1 = track.x1;
-        float y1 = track.y1;
+        float y1 = std::max(0.0f, track.y1);
         float x2 = track.x2;
-        float y2 = track.y2;
+        float y2 = std::min(1.0f, track.y2);
 
         // Calculating the center coordinates
         float cx = (x1 + x2) / 2.0f;
@@ -411,6 +473,31 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
         coordinates[3] = h;
 
         return coordinates;
+    }
+
+    void log_direction(float vx, float vy){
+        std::string x_dir = "";
+        std::string y_dir = "";
+
+        if(vx > 0.05f) {
+            x_dir = "FORWARD";
+        }
+        else if(vx < -0.05f){
+            x_dir = "BACKWARD";
+        }else{
+            x_dir = "HOLDING";
+        }                  
+
+        if(vy > 0.05f){
+            y_dir = "RIGHT";
+        }
+        else if(vy < -0.05f){
+            y_dir = "LEFT";
+        }else {
+            y_dir = "HOLDING";
+        }
+
+        RCLCPP_INFO(get_logger(), "DIRECTION: x=%s(%.2f) y=%s(%.2f)", x_dir.c_str(), vx, y_dir.c_str(), vy);
     }
 };
 
