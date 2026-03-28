@@ -15,6 +15,7 @@ class StreamingNode(Node):
         self._latest_tracks = None
         self._synchronization_lock = threading.Lock()
         self._bridge = CvBridge()
+        
         self.subscriber = self.create_subscription(
             Image,
             '/camera/image_raw',
