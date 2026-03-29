@@ -2,6 +2,7 @@ import threading
 import rclpy
 from  rclpy.node import Node
 from sensor_msgs.msg import Image
+from std_msgs.msg import Int32
 from skylark_interfaces.msg import TrackArray
 from cv_bridge import CvBridge
 import cv2 as cv
@@ -16,6 +17,8 @@ class StreamingNode(Node):
         self._synchronization_lock = threading.Lock()
         self._bridge = CvBridge()
         
+        self.locked_id = -1
+        
         self.subscriber = self.create_subscription(
             Image,
             '/camera/image_raw',
@@ -27,6 +30,13 @@ class StreamingNode(Node):
             TrackArray,
             '/tracking/tracks',
             self.tracks_callback,
+            10
+        )
+        
+        self.identity_subscriber = self.create_subscription(
+            Int32,
+            '/identity/locked_track_id',
+            self.identity_callback,
             10
         )
         
@@ -66,14 +76,25 @@ class StreamingNode(Node):
                 x2 = int(track.x2 * W)
                 y2 = int(track.y2 * H)
                 
-                cv.rectangle(image, (x1,y1), (x2,y2), (0,255,0), 2)
-                cv.putText(image, f"ID:{track.tracking_id} {track.class_id}",(x1, y1 - 5), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
+                # Getting the locked tracking id
+                with self.synchronization_lock:
+                    locked_id = self.locked_id
+                    
+                if track.tracking_id == locked_id:
+                    color = (255,100,0)
+                    label = f"OWNER [{track.tracking_id}]"
+                else:
+                    color = (0,255,0)
+                    label = f"ID: {track.tracking_id}"
+                
+                cv.rectangle(image, (x1,y1), (x2,y2), color, 2)
+                cv.putText(image, label,(x1, y1 - 5), cv.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
                 
      
         # Encode to JPEG
         is_successful, img_encoded = cv.imencode('.jpg', image)
         
-        self.get_logger().info(f'JPEG encoding status: {"SUCCESS" if is_successful else "FAILED"}')
+        # self.get_logger().info(f'JPEG encoding status: {"SUCCESS" if is_successful else "FAILED"}')
         
         # Writing the encoded jpeg string to bytes
         jpeg_bytes = img_encoded.tobytes()
@@ -88,6 +109,10 @@ class StreamingNode(Node):
     def tracks_callback(self, message):
         with self._synchronization_lock:
             self._latest_tracks = message
+            
+    def identity_callback(self, message):
+        with self.synchronization_lock:
+            self.locked_id = message.data
             
         
 

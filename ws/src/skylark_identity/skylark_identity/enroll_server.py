@@ -53,8 +53,6 @@ async def post_enroll_frame(image: UploadFile):
     
     return {"status": "ok", "frames_collected": len(embeddings_buffer)}
     
-    
-
 @app.get("/enroll/status")
 async def get_enroll_status():
     return {
@@ -69,4 +67,5 @@ if __name__ == "__main__":
         uvicorn.run(app, host="0.0.0.0", port=8888, ssl_certfile=CERT, ssl_keyfile=KEY)
     else:
         print("WARNING: No certs found, running HTTP (camera will not work on mobile)")
+        # Add script to create certification
         uvicorn.run(app, host="0.0.0.0", port=8888)

@@ -28,8 +28,10 @@ class IdentityNode(Node):
         self.latest_frame = None
         
         self.declare_parameter('embedding_path','/app/data/owner_embedding.npy')
+        self.declare_parameter('match_threshold', 0.45)
         
         self.embedding_path = self.get_parameter('embedding_path').get_parameter_value().string_value
+        self.match_threshold_ = self.get_parameter('match_threshold').get_parameter_value().double_value
         
         self.get_logger().info('Loaded Enrollment Info- Need to check if user is enrolled...')
         
@@ -91,7 +93,7 @@ class IdentityNode(Node):
         if self.state == STATE_SEARCHING:
             for track in tracks.tracks:
                 score = self.engine.detect_and_match(self.latest_frame, (track.x1, track.y1, track.x2, track.y2))
-                if score > 0.45:
+                if score > self.match_threshold_:
                     self.consecutive_hits = self.consecutive_hits + 1
                 else:
                     self.consecutive_hits = 0
@@ -109,7 +111,7 @@ class IdentityNode(Node):
                     found_track = True                
                     # There is a track that is locked
                     score = self.engine.detect_and_match(self.latest_frame, (track.x1, track.y1, track.x2, track.y2))
-                    if score < 0.45:
+                    if score < self.match_threshold_:
                         self.consecutive_misses = self.consecutive_misses + 1
                     
                     if self.consecutive_misses >= 3:
