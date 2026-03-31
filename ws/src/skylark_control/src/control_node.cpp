@@ -16,6 +16,7 @@
 #include "skylark_interfaces/msg/track_array.hpp"
 
 #include "std_srvs/srv/trigger.hpp"
+#include "std_msgs/msg/int32.hpp"
 
 #include "pid_controller.hpp"
 
@@ -112,6 +113,14 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
 
         RCLCPP_INFO(get_logger(), "Creating the TrackArray subscriber.");
 
+        identity_subscription_ = this->create_subscription<std_msgs::msg::Int32>(
+            "/identity/locked_track_id",
+            10,
+            std::bind(&ControlNode::identity_callback, this, std::placeholders::_1)
+        );
+
+        RCLCPP_INFO(get_logger(), "Creating the Identity Track Lock subscriber.");
+
         // Creating the landing service
         landing_service_ = this->create_service<std_srvs::srv::Trigger>(
             "/land",
@@ -197,9 +206,12 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
 
     bool disarm_logged_ = false;
 
+    int locked_tracking_id_ = -1;
+
     rclcpp::Subscription<px4_msgs::msg::VehicleOdometry>::SharedPtr odometry_subscription_;
     rclcpp::Subscription<px4_msgs::msg::VehicleStatus>::SharedPtr vehicle_status_subscription_;
     rclcpp::Subscription<skylark_interfaces::msg::TrackArray>::SharedPtr tracked_array_subscription_;
+    rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr identity_subscription_;
     
     /*
     * OffboardControlMode is a message that tells what is the nature of the information being sent to the PX4
@@ -224,7 +236,12 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
    float kd_lateral_;
    float kd_distance_;
 
-
+    /**
+     * Idea is this, every tick the drone does three steps:
+     *  1. Tell the FC that it is controlled using program (autonomous)
+     *  2. Publishes a setpoint (x,y,z) -> (vx,vy,0.0f, altitude) 
+     *  3. Handle the state machine
+     */
     void timer_callback(){
         // PX4 has a deadman's switch built in so the offboard control needs to be published every now and then to stop it from dying.
         publish_offboard_control_mode();
@@ -298,7 +315,7 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
             case FlightState::ARMING:
                 if(nav_state_ == px4_msgs::msg::VehicleStatus::NAVIGATION_STATE_OFFBOARD && arming_state_ == px4_msgs::msg::VehicleStatus::ARMING_STATE_ARMED){
                     RCLCPP_INFO(get_logger(), "Offboard confirmed and drone is ARMED. Transitioning to TAKEOFF.");
-                    target_z_ = -takeoff_altitude;
+                    target_z_ = -takeoff_altitude; // The FC NED (North East Down)
                     flight_state_ = FlightState::TAKEOFF;
                 } else if(nav_state_ == px4_msgs::msg::VehicleStatus::NAVIGATION_STATE_OFFBOARD && arming_state_ != px4_msgs::msg::VehicleStatus::ARMING_STATE_ARMED){
                     RCLCPP_INFO(get_logger(), "Offboard confirmed. Sending ARM command.");
@@ -334,23 +351,27 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
                     pid_lateral_.reset();
                 }else{
                     // There are tracks to handle
-                    float best_confidence = -1.0;
+                    bool found = false;
                     skylark_interfaces::msg::Track best_track;
-
-                    for(auto track: latest_tracks_.tracks){
-                        if(track.class_id == PERSON_CLASS){
-                            // This is a person class
-                            if(track.confidence > best_confidence){
-                                // This is more than the best so I need to track it
+                    
+                    if(locked_tracking_id_ != -1){
+                        for(auto track: latest_tracks_.tracks){
+                            if(track.tracking_id == locked_tracking_id_){
+                                // No need for person class since the tracking id is isolated
                                 best_track = track;
-                                best_confidence = track.confidence;
+                                found = true;
+                                break;
                             }
                         }
                     }
+                   
 
                     // Now need to check if there is a best track found or not
-                    if(best_confidence == -1.0f){
-                        
+                    if(!found){
+                        command_vx_ = 0.0f;
+                        command_vy_ = 0.0f;
+                        pid_distance_.reset();
+                        pid_lateral_.reset();
                     }else{
                         // There is a box found so I need to calculate the coordinates
                         std::vector<float> coordinate = compute_center_coordinates(best_track);
@@ -452,6 +473,10 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
 
     void tracking_callback(const skylark_interfaces::msg::TrackArray::SharedPtr message){
         latest_tracks_ = *message;
+    }
+
+    void identity_callback(const std_msgs::msg::Int32::SharedPtr message){
+        locked_tracking_id_ = message->data;
     }
 
     std::vector<float> compute_center_coordinates(const skylark_interfaces::msg::Track& track){

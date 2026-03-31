@@ -36,8 +36,19 @@ def generate_launch_description():
             parameters=[
                 {
                     'embedding_path':'/mnt/d/dev/SkylarkOS/data/owner_embedding.npy',
-                    'match_threshold': 0.38
-                
+                    'reid_embedding_path': '/mnt/d/dev/SkylarkOS/data/owner_reid_embedding.npy',
+                    'match_threshold': 0.45,
+                    'reid_match_threshold': 0.3,
+                    'reid_model_path': '/mnt/d/dev/SkylarkOS/models/osnet_x0_25.onnx'
                 }]
+        ),
+        
+        Node(
+            package='skylark_gesture',
+            executable='gesture_node',
+            parameters=[{
+                'pose_model_path': '/mnt/d/dev/SkylarkOS/models/yolo11n-pose.onnx'
+            }]
         )
+
     ])
