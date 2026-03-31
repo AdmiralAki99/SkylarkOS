@@ -35,6 +35,7 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
             declare_parameter("input_height", 300);
             declare_parameter("confidence_threshold", 0.5f);
             declare_parameter("nms_threshold", 0.5f);
+            declare_parameter("detection_skip_frames", 2);
 
             // Get the model path from the parameters
             std::string model_path = get_parameter("model_path").as_string();
@@ -49,6 +50,9 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
             // Get the NMS threshold from the parameters
             nms_threshold_ = get_parameter("nms_threshold").as_double();
 
+            // Getting the frame skip counter
+            detection_skip_frames_ = get_parameter("detection_skip_frames").as_int();
+
             // Validating the model path
             if(model_path.empty()){
                 RCLCPP_ERROR(get_logger(), "Model path is empty. Please provide a valid model path.");
@@ -58,7 +62,7 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
             // Creating the subscription to the input frames
             image_subscription_ = this->create_subscription<sensor_msgs::msg::Image>(
                 "/camera/image_raw",
-                10,
+                1,
                 std::bind(&PerceptionNode::image_callback,
                 this,
                 std::placeholders::_1)
@@ -149,8 +153,17 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
     int input_height_;
     float confidence_threshold_;
     float nms_threshold_;
+    int frame_counter = 0;
+    int detection_skip_frames_;
 
     void image_callback(const sensor_msgs::msg::Image::SharedPtr message){
+
+        // Adding a counter to stop the detector from running every frame
+        frame_counter = frame_counter + 1;
+        if(frame_counter % detection_skip_frames_ != 0){
+            return;
+        }
+
         // Creating a cv_bridge to convert the ROS image message into a matrix
         cv_bridge::CvImagePtr cv_image_ptr;
         cv::Mat input_image;
@@ -167,7 +180,7 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
         cv::resize(input_image, resized_image, cv::Size(input_width_, input_height_));
 
         // Image is converted and now can be used.
-        RCLCPP_INFO(get_logger(), "Received frame: %dx%d", input_image.cols, input_image.rows);
+        // RCLCPP_INFO(get_logger(), "Received frame: %dx%d", input_image.cols, input_image.rows);
         cv::cvtColor(resized_image, rgb, cv::COLOR_BGR2RGB);
 
         // Convert to float
@@ -214,7 +227,7 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
 
             // Filtering the detection based on the confidence threshold
             if(best_score >= confidence_threshold_){
-                RCLCPP_INFO(get_logger(), "Detection %d: Label=%d, Score=%.2f", index, best_label, best_score);
+                // RCLCPP_INFO(get_logger(), "Detection %d: Label=%d, Score=%.2f", index, best_label, best_score);
 
                 // Getting the coordinates
                 float x1 = boxes[4 * index + 0];

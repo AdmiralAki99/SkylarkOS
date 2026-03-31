@@ -13,13 +13,14 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(px4_msgs REQUIRED)
 find_package(skylark_interfaces REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 add_executable(control_node 
   src/control_node.cpp
   src/pid_controller.cpp
 )
 
-ament_target_dependencies(control_node rclcpp rclcpp_lifecycle px4_msgs std_srvs skylark_interfaces)
+ament_target_dependencies(control_node rclcpp rclcpp_lifecycle px4_msgs std_srvs skylark_interfaces std_msgs)
 target_include_directories(control_node PUBLIC include/)
 
 install(TARGETS

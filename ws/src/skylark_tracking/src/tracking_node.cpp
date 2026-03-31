@@ -39,7 +39,7 @@ class TrackingNode: public rclcpp_lifecycle::LifecycleNode{
             // Creating the subscriptions needed with the right callback
             detection_subscription_ = this->create_subscription<skylark_interfaces::msg::DetectionArray>(
                 "/detection_results",
-                10,
+                1,
                 std::bind(&TrackingNode::tracking_callback,
                             this,
                             std::placeholders::_1)
@@ -117,7 +117,7 @@ class TrackingNode: public rclcpp_lifecycle::LifecycleNode{
                 detectionList.push_back(detection);
             }
 
-            RCLCPP_INFO(get_logger(), "Initialized the detection boxes.");
+            // RCLCPP_INFO(get_logger(), "Initialized the detection boxes.");
 
             std::vector<cv::Rect2f> predicted_boxes; 
             // Now need to create a IoU matrix
@@ -126,10 +126,10 @@ class TrackingNode: public rclcpp_lifecycle::LifecycleNode{
                 predicted_boxes.push_back(predicted_track);
             }
 
-            RCLCPP_INFO(get_logger(), "Initialized the tracks for the Hungarian solver.");
+            // RCLCPP_INFO(get_logger(), "Initialized the tracks for the Hungarian solver.");
 
             if(predicted_boxes.empty() || detection_boxes.empty()){
-                RCLCPP_INFO(get_logger(), "Predicted boxes or detection boxes are empty.");
+                // RCLCPP_INFO(get_logger(), "Predicted boxes or detection boxes are empty.");
                 for(size_t i = 0; i < detection_boxes.size(); i++){
                     tracks_.push_back(KalmanTrack(detection_boxes[i]));
                 }
@@ -153,7 +153,7 @@ class TrackingNode: public rclcpp_lifecycle::LifecycleNode{
                 }
             }
 
-            RCLCPP_INFO(get_logger(), "Computed cost matrix.");
+            // RCLCPP_INFO(get_logger(), "Computed cost matrix.");
             std::vector<int> assignments;
             solver_.Solve(costMatrix, assignments);
 
@@ -171,7 +171,7 @@ class TrackingNode: public rclcpp_lifecycle::LifecycleNode{
                 }
             }
 
-            RCLCPP_INFO(get_logger(), "Assigned detections to the tracks.");
+            // RCLCPP_INFO(get_logger(), "Assigned detections to the tracks.");
 
              // There is no match for the track
             std::set<int> assignedDetections;
@@ -197,7 +197,7 @@ class TrackingNode: public rclcpp_lifecycle::LifecycleNode{
                 tracks_.end()
             );
 
-            RCLCPP_INFO(get_logger(), "Erased the tracks and detections.");
+            // RCLCPP_INFO(get_logger(), "Erased the tracks and detections.");
 
             auto trackArrayMessage = skylark_interfaces::msg::TrackArray();
             trackArrayMessage.header = detections.header;

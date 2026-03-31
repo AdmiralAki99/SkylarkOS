@@ -47,6 +47,7 @@ ws/log/
 
 # ONNX model files (large binaries — store separately)
 *.onnx
+models/
 
 # Python cache
 __pycache__/
@@ -59,3 +60,7 @@ __pycache__/
 # OS files
 .DS_Store
 Thumbs.db
+.venv/
+
+# Data Files
+data/
