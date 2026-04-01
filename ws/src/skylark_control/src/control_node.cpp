@@ -17,6 +17,7 @@
 
 #include "std_srvs/srv/trigger.hpp"
 #include "std_msgs/msg/int32.hpp"
+#include "std_msgs/msg/string.hpp"
 
 #include "pid_controller.hpp"
 
@@ -121,6 +122,14 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
 
         RCLCPP_INFO(get_logger(), "Creating the Identity Track Lock subscriber.");
 
+        gesture_subscription_ = this->create_subscription<std_msgs::msg::String>(
+            "/gesture/command",
+            10,
+            std::bind(&ControlNode::gesture_callback, this, std::placeholders::_1)
+        );
+
+        RCLCPP_INFO(get_logger(), "Creating the Gesture command subscriber.");
+
         // Creating the landing service
         landing_service_ = this->create_service<std_srvs::srv::Trigger>(
             "/land",
@@ -208,10 +217,13 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
 
     int locked_tracking_id_ = -1;
 
+    std::string current_gesture_ = "";
+
     rclcpp::Subscription<px4_msgs::msg::VehicleOdometry>::SharedPtr odometry_subscription_;
     rclcpp::Subscription<px4_msgs::msg::VehicleStatus>::SharedPtr vehicle_status_subscription_;
     rclcpp::Subscription<skylark_interfaces::msg::TrackArray>::SharedPtr tracked_array_subscription_;
     rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr identity_subscription_;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr gesture_subscription_;
     
     /*
     * OffboardControlMode is a message that tells what is the nature of the information being sent to the PX4
@@ -247,6 +259,10 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
         publish_offboard_control_mode();
         publish_trajectory_setpoint(command_vx_,command_vy_, 0.0f, target_z_);
         manage_state_machine();
+    }
+
+    void gesture_callback(const std_msgs::msg::String::SharedPtr message){
+        current_gesture_ = message->data;
     }
 
     void vehicle_status_callback(const px4_msgs::msg::VehicleStatus::SharedPtr message){
@@ -341,7 +357,24 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
             break;
             case FlightState::FLYING:
                 // This is the most important state and takes care of all the flying operations
-                // TODO: Implement all the different control gestures and commands
+                
+                if(current_gesture_ == "LAND"){
+                    current_gesture_ = "";
+                    flight_state_ = FlightState::LANDING;
+                    target_x_ = current_x_;
+                    target_y_ = current_y_;
+                    publish_vehicle_command(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_NAV_LAND);
+                    break;
+                }
+
+                if(current_gesture_ == "STOP" || current_gesture_ == "HOVER"){
+                    command_vx_ = 0.0f;
+                    command_vy_ = 0.0f;
+                    pid_distance_.reset();
+                    pid_lateral_.reset();
+                    break;
+                }
+
                 // Handling the tracking boxes
                 if(latest_tracks_.tracks.empty()){
                     // There is no person to follow

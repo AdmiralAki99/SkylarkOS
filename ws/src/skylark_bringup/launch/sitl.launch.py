@@ -6,7 +6,7 @@ def generate_launch_description():
         Node(
             package='skylark_video_sim',
             executable= 'video_publisher_node',
-            parameters=[{'filename': '/mnt/d/dev/SkylarkOS/charles_test.mp4'}]
+            parameters=[{'filename': '/mnt/d/dev/SkylarkOS/ryan_gesture_test.mp4'}]
         ),
         
         Node(
@@ -25,10 +25,10 @@ def generate_launch_description():
             executable='streaming_node'
         ),
         
-        # Node(
-        #     package='skylark_control',
-        #     executable='control_node'
-        # ),
+        Node(
+            package='skylark_control',
+            executable='control_node'
+        ),
         
         Node(
             package='skylark_identity',
@@ -47,7 +47,8 @@ def generate_launch_description():
             package='skylark_gesture',
             executable='gesture_node',
             parameters=[{
-                'pose_model_path': '/mnt/d/dev/SkylarkOS/models/yolo11n-pose.onnx'
+                'pose_model_path': '/mnt/d/dev/SkylarkOS/models/yolo11n-pose.onnx',
+                'keypoint_confidence_threshold': 0.3
             }]
         )
 

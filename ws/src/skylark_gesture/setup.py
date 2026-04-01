@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'skylark_streaming'
+package_name = 'skylark_gesture'
 
 setup(
     name=package_name,
@@ -11,7 +11,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools', 'numpy'],
+    install_requires=['setuptools','onnxruntime','numpy'],
     zip_safe=True,
     maintainer='akhi',
     maintainer_email='akhi@todo.todo',
@@ -24,7 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'streaming_node = skylark_streaming.streaming_node:main',
+            'gesture_node = skylark_gesture.gesture_node:main'
         ],
     },
 )
