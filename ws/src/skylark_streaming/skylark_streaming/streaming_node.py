@@ -1,12 +1,14 @@
 import threading
+import numpy
 import rclpy
 from  rclpy.node import Node
 from sensor_msgs.msg import Image
-from std_msgs.msg import Int32
+from std_msgs.msg import Int32, Float32MultiArray
 from skylark_interfaces.msg import TrackArray
 from cv_bridge import CvBridge
 import cv2 as cv
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import time
 
 class StreamingNode(Node):
     def __init__(self):
@@ -14,10 +16,13 @@ class StreamingNode(Node):
         
         self._last_frame = None
         self._latest_tracks = None
+        self._latest_keypoints = None
+        self._last_frame_time = None
         self._synchronization_lock = threading.Lock()
         self._bridge = CvBridge()
         
         self.locked_id = -1
+        self.fps = 0.0
         
         self.subscriber = self.create_subscription(
             Image,
@@ -40,6 +45,13 @@ class StreamingNode(Node):
             10
         )
         
+        self.skeleton_subscriber = self.create_subscription(
+            Float32MultiArray,
+            '/gesture/keypoints',
+            self.keypoints_callback,
+            10
+        )
+        
         self.get_logger().info('Created server started on port 8080')
         
         server = HTTPServer(('0.0.0.0',8080),MJPEGHandler)
@@ -59,6 +71,11 @@ class StreamingNode(Node):
         return self._synchronization_lock
     
     def image_callback(self, message):
+        now = time.time()
+        if self._last_frame_time is not None:
+            self.fps = 1.0 / (now - self._last_frame_time)
+            
+        self._last_frame_time = now
         # Make an image out of the message
         image = self._bridge.imgmsg_to_cv2(message, 'bgr8')
         
@@ -89,7 +106,35 @@ class StreamingNode(Node):
                 
                 cv.rectangle(image, (x1,y1), (x2,y2), color, 2)
                 cv.putText(image, label,(x1, y1 - 5), cv.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+            
+        if self._latest_keypoints is not None and len(self._latest_keypoints) == 51:
+            keypoints = numpy.array(self._latest_keypoints).reshape(17,3)
+            for track in self._latest_tracks.tracks:
+                if track.tracking_id == self.locked_id:
+                    x1 = int(track.x1 * W) 
+                    y1 = int(track.y1 * H)
+                    x2 = int(track.x2 * W)
+                    y2 = int(track.y2 * H)
+                    
+                    crop_w = (track.x2 - track.x1) * W
+                    crop_h = (track.y2 - track.y1) * H
+                    
+                    for index in range(17):
+                        if keypoints[index][2] > 0.3:
+                            px = int(keypoints[index][0]) + x1
+                            py = int(keypoints[index][1]) + y1
+                            cv.circle(image, (px, py), 4, (0, 255, 255), -1)
+                            
+                    # Drawing the skeleton
+                    SKELETON = [(5,6),(5,7),(7,9),(6,8),(8,10),(5,11),(6,12),(11,12),(11,13),(13,15),(12,14),(14,16)]
+                    for a,b in SKELETON:
+                        if keypoints[a][2] > 0.3 and keypoints[b][2] > 0.3:
+                            pa = (int(keypoints[a][0]) + x1, int(keypoints[a][1]) + y1)
+                            pb = (int(keypoints[b][0]) + x1, int(keypoints[b][1]) + y1)
+                            cv.line(image, pa, pb, (0, 255, 255), 2)   
+                    break
                 
+        cv.putText(image, f'FPS: {self.fps:.1f}', (10, 30), cv.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
      
         # Encode to JPEG
         is_successful, img_encoded = cv.imencode('.jpg', image)
@@ -100,9 +145,10 @@ class StreamingNode(Node):
         jpeg_bytes = img_encoded.tobytes()
                   
         # Need to save the last frame without causing race conditions
-        self._frame = self._frame + 1
+        # self._frame = self._frame + 1
         # if self._frame % 30 == 0:
-        #     self.get_logger().info(f'Streaming — frames received: {self._frame}')
+        #     self.get_logger().info(f'Streaming FPS: {self.fps:.1f}')
+
         with self._synchronization_lock:
             self._last_frame = jpeg_bytes
             
@@ -113,6 +159,9 @@ class StreamingNode(Node):
     def identity_callback(self, message):
         with self.synchronization_lock:
             self.locked_id = message.data
+            
+    def keypoints_callback(self, message):
+        self._latest_keypoints = message.data
             
         
 

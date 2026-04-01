@@ -115,19 +115,16 @@ class IdentityNode(Node):
                     self.locked_id = track.tracking_id
                     self.state = STATE_ENROLLING_REID
                     self.consecutive_hits = 0
-                    self.get_logger().info(f'Face locked on track {self.locked_id} — starting ReID enrollment')
                     break
                 
         elif self.state == STATE_ENROLLING_REID:
             found_track = False
             for track in tracks.tracks:
                 if self.locked_id == track.tracking_id:
-                    self.get_logger().info(f'ReID crop {len(self.reid_crops)}/{self.reid_enroll_target}')
                     found_track = True
                     self.reid_crops.append((self.latest_frame, (track.x1, track.y1, track.x2, track.y2)))
                     if len(self.reid_crops) >= self.reid_enroll_target:
                         self.reid_engine.enroll(self.reid_crops)
-                        self.get_logger().info(f'ReID enrolled — entering LOCKED on track {self.locked_id}')
                         self.reid_crops = []
                         self.state = STATE_LOCKED
                     break
@@ -143,7 +140,6 @@ class IdentityNode(Node):
                     found_track = True                
                     # There is a track that is locked
                     score = self.reid_engine.match(self.latest_frame, (track.x1, track.y1, track.x2, track.y2))
-                    self.get_logger().info(f'ReID score: {score:.3f} (threshold: {self.reid_match_threshold_})')
                     if score < self.reid_match_threshold_:
                         self.consecutive_misses = self.consecutive_misses + 1
                     
