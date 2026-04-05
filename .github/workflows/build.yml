@@ -38,6 +38,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Setup ROS2 Humble
         uses: ros-tooling/setup-ros@v0.7
@@ -96,10 +98,6 @@ jobs:
         run: |
           source /opt/ros/humble/setup.bash
           cd ws
-          colcon build --packages-select px4_msgs \
-            --cmake-args -DCMAKE_BUILD_TYPE=Release
-          export CMAKE_PREFIX_PATH=$PWD/install:$CMAKE_PREFIX_PATH
-          export AMENT_PREFIX_PATH=$PWD/install:${AMENT_PREFIX_PATH:-}
           colcon build \
             --cmake-args -DCMAKE_BUILD_TYPE=Release \
             --event-handlers console_cohesion+
