@@ -98,7 +98,8 @@ jobs:
           cd ws
           colcon build --packages-select px4_msgs \
             --cmake-args -DCMAKE_BUILD_TYPE=Release
-          source install/setup.bash
+          export CMAKE_PREFIX_PATH=$PWD/install:$CMAKE_PREFIX_PATH
+          export AMENT_PREFIX_PATH=$PWD/install:${AMENT_PREFIX_PATH:-}
           colcon build \
             --cmake-args -DCMAKE_BUILD_TYPE=Release \
             --event-handlers console_cohesion+
