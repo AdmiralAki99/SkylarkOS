@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Python unit tests (no ROS2 required)
+  # ---------------------------------------------------------------------------
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pytest pytest-cov numpy opencv-python-headless onnxruntime scipy
+
+      - name: Run unit tests
+        run: pytest tests/ -v --tb=short --cov=ws/src --cov-report=term-missing
+
+  # ---------------------------------------------------------------------------
+  # Job 2: ROS2 Humble workspace build
+  # ---------------------------------------------------------------------------
+  ros2-build:
+    name: ROS2 Build (Humble)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup ROS2 Humble
+        uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: humble
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ros-humble-cv-bridge \
+            ros-humble-image-transport \
+            ros-humble-vision-opencv \
+            ros-humble-rmw-cyclonedds-cpp \
+            python3-colcon-common-extensions \
+            python3-rosdep
+
+      - name: Install ONNX Runtime C++ (for skylark_perception)
+        run: |
+          wget -q https://github.com/microsoft/onnxruntime/releases/download/v1.19.2/onnxruntime-linux-x64-1.19.2.tgz
+          tar -xzf onnxruntime-linux-x64-1.19.2.tgz
+          sudo cp -r onnxruntime-linux-x64-1.19.2/include/* /usr/local/include/
+          sudo cp -r onnxruntime-linux-x64-1.19.2/lib/* /usr/local/lib/
+          sudo ldconfig
+
+      - name: Install Python dependencies
+        run: |
+          pip install numpy opencv-python-headless onnxruntime insightface fastapi uvicorn scipy
+
+      - name: Build workspace
+        run: |
+          source /opt/ros/humble/setup.bash
+          cd ws
+          colcon build \
+            --cmake-args -DCMAKE_BUILD_TYPE=Release \
+            --event-handlers console_cohesion+
+        shell: bash
+
+      - name: Verify install
+        run: |
+          source /opt/ros/humble/setup.bash
+          source ws/install/setup.bash
+          ros2 pkg list | grep skylark
+        shell: bash

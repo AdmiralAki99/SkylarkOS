@@ -44,6 +44,9 @@
 ws/build/
 ws/install/
 ws/log/
+ws/src/build/
+ws/src/install/
+ws/src/log/
 
 # ONNX model files (large binaries — store separately)
 *.onnx
@@ -64,3 +67,13 @@ Thumbs.db
 
 # Data Files
 data/
+
+# Test media and scratch files
+*.mp4
+*.mov
+*.jpg
+*.jpeg
+*.png
+*.npy
+DEPLOYMENT_NOTES.txt
+output.mp4
