@@ -38,8 +38,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Clone px4_msgs
+        run: |
+          rm -rf ws/src/px4_msgs
+          git clone --depth 1 https://github.com/PX4/px4_msgs.git ws/src/px4_msgs
 
       - name: Setup ROS2 Humble
         uses: ros-tooling/setup-ros@v0.7
