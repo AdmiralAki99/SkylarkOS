@@ -67,9 +67,19 @@ jobs:
         run: |
           pip install numpy opencv-python-headless onnxruntime insightface fastapi uvicorn scipy
 
+      - name: Build px4_msgs first
+        run: |
+          source /opt/ros/humble/setup.bash
+          cd ws
+          colcon build --packages-select px4_msgs \
+            --cmake-args -DCMAKE_BUILD_TYPE=Release
+          source install/setup.bash
+        shell: bash
+
       - name: Build workspace
         run: |
           source /opt/ros/humble/setup.bash
+          source ws/install/setup.bash
           cd ws
           colcon build \
             --cmake-args -DCMAKE_BUILD_TYPE=Release \
