@@ -106,8 +106,6 @@ class GestureNode(Node):
     def identity_callback(self, message):
         self.locked_id = message.data
         
-    
-    
 def main(args= None):
     rclpy.init(args=args)
     node = GestureNode()
