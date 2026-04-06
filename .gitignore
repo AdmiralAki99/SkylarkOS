@@ -68,6 +68,9 @@ Thumbs.db
 # Data Files
 data/
 
+# Private dev notes
+docs/dev_roadmap.md
+
 # Test media and scratch files
 *.mp4
 *.mov
