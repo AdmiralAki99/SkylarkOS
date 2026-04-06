@@ -412,14 +412,3 @@ All models run via ONNX Runtime on CPU during development. On Jetson, all infere
 | `skylark_bringup` | Complete — SITL launch validated end-to-end |
 | `skylark_depth` | In development — sparse stereo, IMX219-83, metric distance |
 | `skylark_api` | In development — WebSocket, FastAPI, remote directional control |
-| `skylark_navigation` | Planned — Nav2 waypoint missions |
-
-### Remaining Work
-
-- **Jetson deployment** — flash JetPack, TensorRT engine compilation, hardware benchmark
-- **Stereo calibration** — checkerboard calibration of IMX219-83, rectification maps
-- **`skylark_depth`** — sparse StereoSGBM on bbox ROI, metric distance to `skylark_control`
-- **`skylark_api`** — FastAPI WebSocket server, remote command interface
-- **RTSP streaming** — replace MJPEG with GStreamer NVENC pipeline for ESP32-P4
-- **Yaw control** — add yaw PID to `skylark_control` based on lateral track offset
-- **Real-world tuning** — PID gains, identity thresholds, gesture thresholds on live hardware
