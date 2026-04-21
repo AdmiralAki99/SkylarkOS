@@ -4,6 +4,13 @@
 
 ---
 
+## What This Project Demonstrates
+
+- Designed and implemented a full real-time perception-to-control pipeline on embedded hardware (Jetson + PX4)
+- Built a multi-model perception stack (detection, tracking, ReID, pose, stereo depth) with sub-16ms latency
+- Engineered a modular ROS2-based system integrating perception, planning, and control via uXRCE-DDS
+- Optimized system performance through hardware-aware scheduling and selective computation (ROI stereo, CPU/GPU balancing)
+
 ## Overview
 
 SkylarkOS is a modular onboard software stack for autonomous UAVs. It runs on an NVIDIA Jetson Orin Nano Super companion computer paired with a Radiolink Pixhawk Advanced flight controller running PX4 firmware. The system provides a full perception-to-control pipeline: camera frames are processed through a YOLO11n detection model, tracked across frames using SORT, and used to drive offboard velocity setpoints to PX4 via uXRCE-DDS. An identity layer uses ArcFace face recognition to lock onto the owner and OSNet ReID-based appearance matching to follow them at distance. A gesture layer uses YOLO11n-pose estimation to interpret body gestures as flight commands. Stereo depth from an IMX219-83 stereo camera provides metric distance estimation to replace the bounding-box proxy used in SITL. All of this is streamed live to a ground station browser.
