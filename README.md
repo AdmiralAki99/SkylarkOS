@@ -1,6 +1,5 @@
 # SkylarkOS
-
-> ROS2-based autonomous UAV operating system with real-time perception, multi-object tracking, owner identification, gesture control, and live video streaming — built for NVIDIA Jetson edge deployment.
+> End-to-end real-time perception-to-control system running at ~11ms latency (62 FPS) on NVIDIA Jetson. ROS2-based autonomous UAV operating system with real-time perception, multi-object tracking, owner identification, gesture control, and live video streaming — built for NVIDIA Jetson edge deployment. 
 
 ---
 
@@ -13,7 +12,25 @@
 
 ## Overview
 
-SkylarkOS is a modular onboard software stack for autonomous UAVs. It runs on an NVIDIA Jetson Orin Nano Super companion computer paired with a Radiolink Pixhawk Advanced flight controller running PX4 firmware. The system provides a full perception-to-control pipeline: camera frames are processed through a YOLO11n detection model, tracked across frames using SORT, and used to drive offboard velocity setpoints to PX4 via uXRCE-DDS. An identity layer uses ArcFace face recognition to lock onto the owner and OSNet ReID-based appearance matching to follow them at distance. A gesture layer uses YOLO11n-pose estimation to interpret body gestures as flight commands. Stereo depth from an IMX219-83 stereo camera provides metric distance estimation to replace the bounding-box proxy used in SITL. All of this is streamed live to a ground station browser.
+SkylarkOS is a end-to-end real-time perception and control system for autonomous UAVs. It runs on an NVIDIA Jetson Orin Nano Super companion computer paired with a Radiolink Pixhawk Advanced flight controller running PX4 firmware. The system provides a full perception-to-control pipeline: camera frames are processed through a YOLO11n detection model, tracked across frames using SORT, and used to drive offboard velocity setpoints to PX4 via uXRCE-DDS. An identity layer uses ArcFace face recognition to lock onto the owner and OSNet ReID-based appearance matching to follow them at distance. A gesture layer uses YOLO11n-pose estimation to interpret body gestures as flight commands. Stereo depth from an IMX219-83 stereo camera provides metric distance estimation to replace the bounding-box proxy used in SITL. All of this is streamed live to a ground station browser.
+
+---
+
+## Performance
+
+> Benchmarks measured on NVIDIA Jetson Orin Nano Super at 25W, 720p input, TensorRT FP16.
+
+| Stage | Latency | Notes |
+|---|---|---|
+| YOLO11n detection | 3.2ms | TensorRT FP16, 640×640 |
+| SORT tracking | 0.8ms | CPU, Kalman + Hungarian |
+| OSNet ReID | 2.1ms | TensorRT FP16, 256×128 crop |
+| YOLO11n-pose | 3.8ms | TensorRT FP16, 640×640 bbox crop |
+| Sparse stereo disparity | 0.6ms | SGBM on bbox ROI only (~150×300px) |
+| End-to-end pipeline | ~11ms | Camera → velocity setpoint |
+| Sustained throughput | 62fps | 720p, all nodes active, 25W |
+
+> SITL validation (WSL2, CPU-only ONNX Runtime): full perception pipeline running at ~25-30fps on Intel i5-9400. Face lock, ReID enrollment, gesture detection, and owner following confirmed end-to-end.
 
 ---
 
@@ -94,24 +111,6 @@ SkylarkOS is a modular onboard software stack for autonomous UAVs. It runs on an
         v
 [skylark_control]
 ```
-
----
-
-## Performance
-
-> Benchmarks measured on NVIDIA Jetson Orin Nano Super at 25W, 720p input, TensorRT FP16.
-
-| Stage | Latency | Notes |
-|---|---|---|
-| YOLO11n detection | 3.2ms | TensorRT FP16, 640×640 |
-| SORT tracking | 0.8ms | CPU, Kalman + Hungarian |
-| OSNet ReID | 2.1ms | TensorRT FP16, 256×128 crop |
-| YOLO11n-pose | 3.8ms | TensorRT FP16, 640×640 bbox crop |
-| Sparse stereo disparity | 0.6ms | SGBM on bbox ROI only (~150×300px) |
-| End-to-end pipeline | ~11ms | Camera → velocity setpoint |
-| Sustained throughput | 62fps | 720p, all nodes active, 25W |
-
-> SITL validation (WSL2, CPU-only ONNX Runtime): full perception pipeline running at ~25-30fps on Intel i5-9400. Face lock, ReID enrollment, gesture detection, and owner following confirmed end-to-end.
 
 ---
 
