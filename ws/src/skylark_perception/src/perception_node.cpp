@@ -58,11 +58,11 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
                 RCLCPP_ERROR(get_logger(), "Model path is empty. Please provide a valid model path.");
                 return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::FAILURE;
             }
-
+            rclcpp::QoS qos_profile = rclcpp::QoS(1).best_effort();
             // Creating the subscription to the input frames
             image_subscription_ = this->create_subscription<sensor_msgs::msg::Image>(
                 "/camera/image_raw",
-                1,
+                qos_profile,
                 std::bind(&PerceptionNode::image_callback,
                 this,
                 std::placeholders::_1)
@@ -81,6 +81,10 @@ class PerceptionNode : public rclcpp_lifecycle::LifecycleNode{
             RCLCPP_INFO(get_logger(), "Attached detection results publisher to the lifecycle node.");
 
             // Loading the ONNX model
+            #ifdef USE_TENSORRT
+                Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_Tensorrt(session_options_, 0));
+                Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CUDA(session_options_, 0));
+            #endif
             try{
                 session_ = std::make_unique<Ort::Session>(env_, model_path.c_str(), session_options_);
                 RCLCPP_INFO(get_logger(), "Loaded ONNX model from path: %s", model_path.c_str());

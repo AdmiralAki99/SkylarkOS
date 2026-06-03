@@ -22,6 +22,10 @@ include_directories(${ONNX_RUNTIME}/include)
 
 # Adding excecutable and linking libraries
 add_executable(perception_node src/perception_node.cpp)
+option(USE_TENSORRT "Enable Tensor RT/CUDA execution providers" OFF)
+if(USE_TENSORRT)
+  target_compile_definitions(perception_node PRIVATE USE_TENSORRT)
+endif()
 ament_target_dependencies(perception_node rclcpp rclcpp_lifecycle sensor_msgs cv_bridge skylark_interfaces)
 
 # Link ONNX Runtime library and OpenCV libraries

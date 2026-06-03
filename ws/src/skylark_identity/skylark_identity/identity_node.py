@@ -2,6 +2,7 @@ import rclpy
 from  rclpy.node import Node
 from sensor_msgs.msg import Image
 from std_msgs.msg import Int32
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from skylark_interfaces.msg import TrackArray
 from skylark_identity.face_engine import FaceEngine
 from skylark_identity.reid_engine import ReIDEngine
@@ -30,6 +31,13 @@ class IdentityNode(Node):
         self.reid_crops = []
         self.reid_enroll_target = 10
         
+        qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+        
+        
         self.latest_frame = None
         
         self.declare_parameter('embedding_path','/app/data/owner_embedding.npy')
@@ -50,7 +58,7 @@ class IdentityNode(Node):
             Image,
             "/camera/image_raw",
             self.image_callback,
-            10
+            qos
         )
         
         self.get_logger().info('Created Subscriber for raw camera footage...')
