@@ -10,8 +10,6 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(cv_bridge REQUIRED)
-find_package(OpenCV REQUIRED)
 
 # GStreamer has no CMake module — locate it via pkg-config
 find_package(PkgConfig REQUIRED)
@@ -27,13 +25,12 @@ target_include_directories(camera_node PRIVATE
   ${GST_VIDEO_INCLUDE_DIRS}
 )
 
-ament_target_dependencies(camera_node rclcpp std_msgs sensor_msgs cv_bridge)
+ament_target_dependencies(camera_node rclcpp std_msgs sensor_msgs)
 
 target_link_libraries(camera_node
   ${GST_LIBRARIES}
   ${GST_APP_LIBRARIES}
   ${GST_VIDEO_LIBRARIES}
-  ${OpenCV_LIBS}
 )
 
 install(TARGETS
