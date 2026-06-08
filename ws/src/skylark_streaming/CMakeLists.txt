@@ -11,15 +11,24 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(skylark_interfaces REQUIRED)
-find_package(cv_bridge REQUIRED)
-find_package(OpenCV REQUIRED)
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GST REQUIRED gstreamer-1.0)
+pkg_check_modules(GST_APP REQUIRED gstreamer-app-1.0)
 
 add_executable(streaming_node src/streaming_node.cpp)
 
-ament_target_dependencies(streaming_node rclcpp std_msgs sensor_msgs skylark_interfaces cv_bridge)
+target_include_directories(streaming_node PRIVATE
+  ${GST_INCLUDE_DIRS}
+  ${GST_APP_INCLUDE_DIRS}
+)
+
+
+ament_target_dependencies(streaming_node rclcpp std_msgs sensor_msgs skylark_interfaces)
 
 target_link_libraries(streaming_node
-  ${OpenCV_LIBS}
+  ${GST_LIBRARIES}
+  ${GST_APP_LIBRARIES}
 )
 
 install(TARGETS

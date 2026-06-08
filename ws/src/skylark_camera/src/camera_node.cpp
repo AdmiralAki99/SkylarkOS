@@ -3,7 +3,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/header.hpp>
 #include <sensor_msgs/msg/image.hpp>
-#include <sensor_msgs/msg/compressed_image.hpp>
 
 class CameraNode : public rclcpp::Node
 {
@@ -14,7 +13,9 @@ class CameraNode : public rclcpp::Node
         declare_parameter("sensor_id", 0);
         declare_parameter("width", 640);
         declare_parameter("height", 480);
-        declare_parameter("fps", 30);
+        declare_parameter("fps", 60);
+        declare_parameter("udp_host", std::string("10.0.0.2"));
+        declare_parameter("udp_port", 5600);
 
         // Getting parameters
         sensor_id_ = get_parameter("sensor_id").as_int();
@@ -22,11 +23,13 @@ class CameraNode : public rclcpp::Node
         height_ = get_parameter("height").as_int();
         fps_ = get_parameter("fps").as_int();
 
+        std::string udp_host = get_parameter("udp_host").as_string();
+        int udp_port = get_parameter("udp_port").as_int();
+
         auto qos = rclcpp::QoS(1).best_effort();
 
         // Creating the publishers for the raw and compressed images
         image_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/camera/image_raw", qos);
-        compressed_image_pub_ = this->create_publisher<sensor_msgs::msg::CompressedImage>("/camera/image_compressed", qos);
 
         // Initializing the Gstreamer pipeline
         gst_init(nullptr, nullptr);
@@ -38,7 +41,10 @@ class CameraNode : public rclcpp::Node
                                             "t. ! queue ! nvvidconv ! video/x-raw,format=BGRx ! appsink name=raw_sink emit-signals=true max-buffers=1 drop=true "
                                             // Stream Sink
                                             // To reduce overhead, using the dedicated hardware encoding in the GStreamer Pipeline nvjpegenc
-                                            "t. ! queue ! nvvidconv ! nvjpegenc quality=50 ! appsink name=stream_sink emit-signals=true max-buffers=1 drop=true";
+                                            "t. ! queue ! nvvidconv ! video/x-raw,width=640,height=360,format=I420 ! "
+                                            "videorate ! video/x-raw,framerate=25/1 ! "
+                                            "nvjpegenc quality=35 ! rtpjpegpay ! "
+                                            "udpsink host=" + udp_host + " port=" + std::to_string(udp_port) + " sync=true buffer-size=8388608"
 
         GError* error = nullptr;
         pipeline_ = gst_parse_launch(pipeline_description.c_str(), &error);
@@ -49,15 +55,12 @@ class CameraNode : public rclcpp::Node
         }
 
         GstElement* raw_sink  = gst_bin_get_by_name(GST_BIN(pipeline_), "raw_sink");
-        GstElement* stream_sink = gst_bin_get_by_name(GST_BIN(pipeline_), "stream_sink");
 
         // Connecting the sinks to the pipeline
         g_signal_connect(raw_sink, "new-sample", G_CALLBACK(on_raw_sample), this);
-        g_signal_connect(stream_sink, "new-sample", G_CALLBACK(on_stream_sample), this);
 
         // Releasing the sink elements
         gst_object_unref(raw_sink);
-        gst_object_unref(stream_sink);
 
         // Starting the pipeline
         gst_element_set_state(pipeline_, GST_STATE_PLAYING);
@@ -65,7 +68,6 @@ class CameraNode : public rclcpp::Node
 
     private:
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr compressed_image_pub_;
     GstElement* pipeline_;
 
     int sensor_id_ = 0;
@@ -101,30 +103,6 @@ class CameraNode : public rclcpp::Node
         node->image_pub_->publish(message);
 
         return GST_FLOW_OK;       
-    }
-
-    static GstFlowReturn on_stream_sample(GstElement* sink, gpointer user_data){
-        // This callback is for the stream sink
-        CameraNode* node = static_cast<CameraNode*>(user_data);
-        GstSample* sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
-        GstBuffer* buffer = gst_sample_get_buffer(sample);
-
-        // The buffer already contains JPEG data so it just needs to be mapped
-        GstMapInfo map;
-        gst_buffer_map(buffer, &map, GST_MAP_READ);
-
-        std::vector<uint8_t> jpeg_data((uint8_t*)map.data, (uint8_t*)map.data + map.size);
-
-        gst_buffer_unmap(buffer, &map);
-        gst_sample_unref(sample);
-
-        sensor_msgs::msg::CompressedImage message;
-        message.header.stamp = node->now();
-        message.format = "jpeg";
-        message.data = std::move(jpeg_data);
-        node->compressed_image_pub_->publish(message);
-
-        return GST_FLOW_OK;
     }
 };
 
