@@ -4,6 +4,8 @@
 #include <std_msgs/msg/header.hpp>
 #include <sensor_msgs/msg/image.hpp>
 
+#include <thread>
+
 class CameraNode : public rclcpp::Node
 {
     public:
@@ -23,8 +25,8 @@ class CameraNode : public rclcpp::Node
         height_ = get_parameter("height").as_int();
         fps_ = get_parameter("fps").as_int();
 
-        std::string udp_host = get_parameter("udp_host").as_string();
-        int udp_port = get_parameter("udp_port").as_int();
+        udp_host_ = get_parameter("udp_host").as_string();
+        udp_port_ = get_parameter("udp_port").as_int();
 
         auto qos = rclcpp::QoS(1).best_effort();
 
@@ -33,18 +35,20 @@ class CameraNode : public rclcpp::Node
 
         // Initializing the Gstreamer pipeline
         gst_init(nullptr, nullptr);
-        std::string pipeline_description = "nvarguscamerasrc sensor-id="+ std::to_string(sensor_id_) + " ! video/x-raw(memory:NVMM),width="+std::to_string(width_) + ","
-                                            "height="+std::to_string(height_) + ",framerate="+std::to_string(fps_) + "/1 ! "
+        std::string pipeline_description =  "nvarguscamerasrc sensor-id=" + std::to_string(sensor_id_) + " ! "
+                                            "video/x-raw(memory:NVMM),width=" + std::to_string(width_) + ","
+                                            "height=" + std::to_string(height_) + ",framerate=" + std::to_string(fps_) + "/1 ! "
                                             "tee name=t "
-                                            // Raw Sink
-                                            // To reduce overhead, using the dedicated hardware conversion in the GStreamer Pipeline nvvidconv
-                                            "t. ! queue ! nvvidconv ! video/x-raw,format=BGRx ! appsink name=raw_sink emit-signals=true max-buffers=1 drop=true "
-                                            // Stream Sink
-                                            // To reduce overhead, using the dedicated hardware encoding in the GStreamer Pipeline nvjpegenc
-                                            "t. ! queue ! nvvidconv ! video/x-raw,width=640,height=360,format=I420 ! "
-                                            "videorate ! video/x-raw,framerate=25/1 ! "
-                                            "nvjpegenc quality=35 ! rtpjpegpay ! "
-                                            "udpsink host=" + udp_host + " port=" + std::to_string(udp_port) + " sync=true buffer-size=8388608"
+                                            "t. ! queue max-size-buffers=2 leaky=upstream max-size-time=0 max-size-bytes=0 ! "
+                                            "nvvidconv ! video/x-raw,format=BGRx ! "
+                                            "appsink name=raw_sink emit-signals=true max-buffers=1 drop=true "
+
+                                            "t. ! queue max-size-buffers=2 leaky=upstream max-size-time=0 max-size-bytes=0 ! "
+                                            "nvvidconv ! video/x-raw,format=I420 ! "
+                                            "videorate ! video/x-raw,framerate=30/1 ! "
+                                            "nvvidconv ! video/x-raw(memory:NVMM),width=640,height=360,format=NV12 ! "
+                                            "nvjpegenc quality=20 ! rtpjpegpay ! "
+                                            "udpsink host=" + udp_host_ + " port=" + std::to_string(udp_port_) + " sync=true buffer-size=8388608";
 
         GError* error = nullptr;
         pipeline_ = gst_parse_launch(pipeline_description.c_str(), &error);
@@ -64,16 +68,81 @@ class CameraNode : public rclcpp::Node
 
         // Starting the pipeline
         gst_element_set_state(pipeline_, GST_STATE_PLAYING);
+
+        // GstBus* bus = gst_element_get_bus(pipeline_);
+        // gst_bus_add_watch(bus, on_bus_message, this);
+        // gst_object_unref(bus);
+
+        // gst_loop_ = g_main_loop_new(nullptr, FALSE);
+        // gst_thread_ = std::thread([this]{ g_main_loop_run(gst_loop_); })
+    }
+
+    ~CameraNode(){
+        if (pipeline_) {
+            gst_element_set_state(pipeline_, GST_STATE_NULL);
+            gst_object_unref(pipeline_);
+        }
     }
 
     private:
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
-    GstElement* pipeline_;
+    GstElement* pipeline_ = nullptr;
+
+    GMainLoop* gst_loop_;
+    std::thread gst_thread_;
 
     int sensor_id_ = 0;
     int width_ = 640;
     int height_ = 480;
-    int fps_ = 30;
+    int fps_ = 60;
+    int udp_port_;
+    std::string udp_host_;
+
+    // void start_pipeline(){
+
+    //     std::string pipeline_description =  "nvarguscamerasrc sensor-id=" + std::to_string(sensor_id_) + " ! "
+    //                                         "video/x-raw(memory:NVMM),width=" + std::to_string(width_) + ","
+    //                                         "height=" + std::to_string(height_) + ",framerate=" + std::to_string(fps_) + "/1 ! "
+    //                                         "tee name=t "
+    //                                         "t. ! queue max-size-buffers=2 leaky=downstream max-size-time=0 max-size-bytes=0 ! "
+    //                                         "appsink name=raw_sink emit-signals=true max-buffers=1 drop=true "
+
+    //                                         "t. ! queue max-size-buffers=2 leaky=downstream max-size-time=0 max-size-bytes=0 ! "
+    //                                         "nvvidconv ! video/x-raw,format=I420 ! "
+    //                                         "videorate ! video/x-raw,framerate=30/1 ! "
+    //                                         "nvvidconv ! video/x-raw(memory:NVMM),width=640,height=360,format=NV12 ! "
+    //                                         "nvjpegenc quality=20 ! rtpjpegpay ! "
+    //                                         "udpsink host=" + udp_host_ + " port=" + std::to_string(udp_port_) + " sync=true buffer-size=8388608";
+
+    //     GError* error = nullptr;
+    //     pipeline_ = gst_parse_launch(pipeline_description.c_str(), &error);
+    //     if (!pipeline_) {
+    //         RCLCPP_ERROR(get_logger(), "Failed to start pipeline: %s", error ? error->message : "unknown");
+    //         if (error) g_error_free(error);
+    //         return;
+    //     }
+
+    //     GstElement* raw_sink = gst_bin_get_by_name(GST_BIN(pipeline_), "raw_sink");
+    //     g_signal_connect(raw_sink, "new-sample", G_CALLBACK(on_raw_sample), this);
+    //     gst_object_unref(raw_sink);
+
+    //     GstBus* bus = gst_element_get_bus(pipeline_);
+    //     gst_bus_add_watch(bus, on_bus_message, this);
+    //     gst_object_unref(bus);
+
+    //     gst_element_set_state(pipeline_, GST_STATE_PLAYING)
+
+    // }
+
+    // void restart_pipeline(){
+    //     gst_element_set_state(pipeline_, GST_STATE_NULL);
+    //     gst_element_get_state(pipeline_, nullptr, nullptr, GST_CLOCK_TIME_NONE);
+
+    //     gst_object_unref(pipeline_);
+    //     pipeline_ = nullptr;
+
+    //     start_pipeline();
+    // }
 
     // GStreamer callbacks
 
@@ -104,6 +173,31 @@ class CameraNode : public rclcpp::Node
 
         return GST_FLOW_OK;       
     }
+
+    // static gboolean on_bus_message(GstBus*, GstMessage* msg, gpointer user_data){
+    //     CameraNode* node = static_cast<CameraNode*>(user_data);
+
+    //     switch (GST_MESSAGE_TYPE(msg)) {
+    //         case GST_MESSAGE_ERROR: { 
+    //             GError* err;
+    //             gchar* debug_info;
+    //             gst_message_parse_error(msg, &err, &debug_info);
+    //             RCLCPP_ERROR(node->get_logger(), "Pipeline error: %s", err->message);
+    //             g_error_free(err);
+    //             g_free(debug_info);
+    //             node->restart_pipeline();
+    //             break; 
+    //         }
+    //         case GST_MESSAGE_EOS: {
+    //             RCLCPP_WARN(node->get_logger(), "Pipeline EOS, restarting");
+    //             node->restart_pipeline();
+    //             break; 
+    //         }
+    //         default: break;
+    //     }
+
+    //     return TRUE;
+    // }
 };
 
 int main(int argc, char* argv[]){
