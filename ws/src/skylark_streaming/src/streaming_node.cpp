@@ -1,34 +1,31 @@
 #include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/compressed_image.hpp> 
 #include <std_msgs/msg/int32.hpp>
 #include <skylark_interfaces/msg/track_array.hpp>
-#include <thread>
 
-// GStreamer Libraries
-#include <gst/gst.h>
-#include <gst/app/gstappsrc.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <cstring>
 
-struct MsgHolder { sensor_msgs::msg::CompressedImage::SharedPtr msg; };
-static void destroy_msg(gpointer data) { delete static_cast<MsgHolder*>(data); }
+#include <algorithm>
+
+struct TrackPacket {
+    uint32_t timestamp_ms;
+    uint8_t  count;
+    struct { int32_t id; float x1, y1, x2, y2; } tracks[16];
+};
 
 class StreamingNode : public rclcpp::Node{
     public:
         StreamingNode() : Node("streaming_node"){
 
             declare_parameter("udp_host", std::string("10.0.0.2"));
-            declare_parameter("udp_port", 5600);
+            declare_parameter("udp_metadata_port", 5601);
 
             std::string host = get_parameter("udp_host").as_string();
-            int port = get_parameter("udp_port").as_int();
+            int metadata_port = get_parameter("udp_metadata_port").as_int();
             auto qos = rclcpp::QoS(1).best_effort();
-
-            compressed_image_subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
-                "/camera/image_compressed",
-                qos,
-                std::bind(&StreamingNode::image_callback,
-                this,
-                std::placeholders::_1)
-            );
 
             // locked_id_subscription_ = this->create_subscription<std_msgs::msg::Int32>(
             //     "/identity/locked_tracking_id",
@@ -36,67 +33,61 @@ class StreamingNode : public rclcpp::Node{
             //     std::bind(&StreamingNode::locked_id_callback, this, std::placeholders::_1)
             // );
 
-            // track_array_subscription_ = this->create_subscription<skylark_interfaces::msg::TrackArray>(
-            //     "/tracking/tracks",
-            //     qos,
-            //     std::bind(&StreamingNode::track_array_callback, this, std::placeholders::_1)
-            // );
+            track_array_subscription_ = this->create_subscription<skylark_interfaces::msg::TrackArray>(
+                "/tracking/tracks",
+                qos,
+                std::bind(&StreamingNode::track_array_callback, this, std::placeholders::_1)
+            );
 
-            // Initializing the Gstreamer pipeline
-            gst_init(nullptr, nullptr);
+            sock_fd_ = socket(AF_INET, SOCK_DGRAM, 0);
 
-            std::string pipeline= "appsrc name=src is-live=true format=time do-timestamp=true ! image/jpeg,width=640,height=360,framerate=25/1 ! rtpjpegpay ! "
-                                  "udpsink host=" + host + " port=" + std::to_string(port) + " sync=true buffer-size=8388608";
-
-            GError* error = nullptr;
-            pipeline_ = gst_parse_launch(pipeline.c_str(), &error);
-            if(!pipeline_){
-                RCLCPP_ERROR(get_logger(), "Failed to create pipeline: %s", error ? error->message : "unknown");
-                if (error) g_error_free(error);
+            if(sock_fd_ == -1){
+                RCLCPP_ERROR(this->get_logger(), "UDP Metadata Stream Socket not started at PORT: %d",metadata_port);
                 return;
             }
-            
-            appsrc_ = GST_APP_SRC(gst_bin_get_by_name(GST_BIN(pipeline_), "src"));
 
-            gst_element_set_state(pipeline_, GST_STATE_PLAYING);
-            RCLCPP_INFO(get_logger(), "Streaming to udp://%s:%d", host.c_str(), port);
+            memset(&dest_addr, 0, sizeof(dest_addr));
+            dest_addr.sin_family = AF_INET;
+            dest_addr.sin_port = htons(metadata_port);
+            inet_pton(AF_INET, host.c_str(), &dest_addr.sin_addr);
+            
         }
 
         ~StreamingNode(){
-            if(pipeline_){
-                gst_element_send_event(pipeline_, gst_event_new_eos());
-                gst_element_set_state(pipeline_, GST_STATE_NULL);
-                gst_object_unref(GST_ELEMENT(appsrc_));
-                gst_object_unref(pipeline_);
+            if(sock_fd_ >= 0){
+                close(sock_fd_);
             }
         }
 
     private:
-    
-        rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr compressed_image_subscription_;
+
+        int sock_fd_ = -1 ;
+        sockaddr_in dest_addr;
+
         rclcpp::Subscription<skylark_interfaces::msg::TrackArray>::SharedPtr track_array_subscription_;
         rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr locked_id_subscription_;
-
-        GstAppSrc* appsrc_ = nullptr;
-        GstElement* pipeline_ = nullptr;
-
-        void image_callback(const sensor_msgs::msg::CompressedImage::SharedPtr message){
-            if(appsrc_ == nullptr) return;
-
-            gsize size = message->data.size();
-            auto* holder = new MsgHolder{message};
-            GstBuffer* buf = gst_buffer_new_wrapped_full(
-            GST_MEMORY_FLAG_READONLY,
-            const_cast<uint8_t*>(message->data.data()),size, 0, size,holder, destroy_msg);
-            gst_app_src_push_buffer(appsrc_, buf);
-        }
 
         void locked_id_callback(const std_msgs::msg::Int32::SharedPtr message){
             
         }
 
         void track_array_callback(const skylark_interfaces::msg::TrackArray::SharedPtr message){
+            TrackPacket packet;
+            memset(&packet,0,sizeof(TrackPacket));
 
+            packet.timestamp_ms = message->header.stamp.sec * 1000 + message->header.stamp.nanosec / 1000000;
+            packet.count = std::min((int)message->tracks.size(), 16);
+            for(int index=0; index < packet.count; index++){
+                int32_t id = message->tracks[index].tracking_id;
+                float x1 = message->tracks[index].x1;
+                float y1 = message->tracks[index].y1;
+                float x2 = message->tracks[index].x2;
+                float y2 = message->tracks[index].y2;
+                
+                packet.tracks[index] = {id,x1,y1,x2,y2};
+            }
+
+            sendto(sock_fd_, &packet, sizeof(packet), 0, (sockaddr*)&dest_addr, sizeof(dest_addr));
         }
 };
 
