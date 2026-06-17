@@ -52,6 +52,12 @@ ws/src/log/
 *.onnx
 models/
 
+# Downloaded wheels bundled for Docker build
+docker/*.whl
+
+# GPU onnxruntime files extracted from working image (large binaries, live on Jetson)
+docker/ort_gpu_files/
+
 # Python cache
 __pycache__/
 *.pyc

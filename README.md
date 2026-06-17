@@ -105,11 +105,14 @@ SkylarkOS is a end-to-end real-time perception and control system for autonomous
 [PX4 Flight Controller]  ---- Position control, attitude, motor outputs
 
 
-[skylark_api]  ---- WebSocket server (FastAPI)
+[skylark_telemetry]  ---- WebSocket server (FastAPI, port 8765)
+        |    Subscribes: /fmu/out/vehicle_odometry, /fmu/out/vehicle_status
+        |                /fmu/out/battery_status, /tracking/tracks, /gesture/command
+        |    Streams JSON: position, velocity, altitude, battery, arming/nav state, tracks, gesture
+        |    Receives commands: land, takeoff, move → ROS2 services/topics
         |
-        | /api/command  (remote directional override)
-        v
-[skylark_control]
+        v ws://<jetson-ip>:8765/ws
+[Ground Station / Phone / Cyberdeck]
 ```
 
 ---
@@ -277,13 +280,14 @@ C++ lifecycle node bridging ROS2 perception to PX4 offboard control via uXRCE-DD
 
 ---
 
-### `skylark_api`
-Python node exposing a WebSocket command interface for remote control. *(In development)*
+### `skylark_telemetry`
+Python node bridging the ROS2 graph to external devices via WebSocket. *(In development)*
 
-- FastAPI WebSocket server running in a background thread alongside the ROS2 node
-- Accepts JSON command messages: `MOVE`, `STOP`, `LAND`, `TAKEOFF` with velocity components
-- Publishes received commands to `/api/command` — consumed by `skylark_control` alongside gesture commands
-- Designed for low-latency persistent connection (WebSocket over REST) for directional control from a ground station UI or ESP32-P4
+- Subscribes to `/fmu/out/vehicle_odometry`, `/fmu/out/vehicle_status`, `/fmu/out/battery_status`, `/tracking/tracks`, `/gesture/command`
+- FastAPI WebSocket server (port 8765) runs in a background thread alongside `rclpy.spin`
+- Broadcasts full telemetry state as JSON at 10Hz to all connected clients: position, velocity, altitude, battery voltage/percentage, arming state, nav state, active tracks, last gesture
+- Receives JSON commands from clients and translates to ROS2 service calls: `land` → `/land`, `takeoff` → `/takeoff`, `move` → trajectory setpoint
+- Designed for persistent low-latency connection from ground station, phone, or cyberdeck
 
 ---
 
@@ -417,4 +421,5 @@ All models run via ONNX Runtime on CPU during development. On Jetson, all infere
 | `skylark_gesture` | Complete — YOLO11n-pose, 4 gestures, debounce, SITL validated |
 | `skylark_bringup` | Complete — SITL launch validated end-to-end |
 | `skylark_depth` | In development — sparse stereo, IMX219-83, metric distance |
-| `skylark_api` | In development — WebSocket, FastAPI, remote directional control |
+| `skylark_telemetry` | In development — WebSocket telemetry broadcast + command bridge, FastAPI |
+| `skylark_navigation` | In development — Nav2 integration, A* global planner, waypoint missions, dynamic replanning on path obstruction |

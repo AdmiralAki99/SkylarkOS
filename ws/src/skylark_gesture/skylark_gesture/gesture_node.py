@@ -2,6 +2,7 @@ import rclpy
 from  rclpy.node import Node
 from sensor_msgs.msg import Image
 from std_msgs.msg import Int32, String, Float32MultiArray
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from skylark_interfaces.msg import TrackArray
 from skylark_gesture.gesture_engine import GestureEngine
 from skylark_gesture.pose_engine import PoseEngine
@@ -32,11 +33,17 @@ class GestureNode(Node):
         
         self.bridge = CvBridge()
         
+        qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+        
         self.image_subscriber = self.create_subscription(
             Image,
             "/camera/image_raw",
             self.image_callback,
-            10
+            qos
         )
         
         self.get_logger().info('Created Subscriber for raw camera footage...')
