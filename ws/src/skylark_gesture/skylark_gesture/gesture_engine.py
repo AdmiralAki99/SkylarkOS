@@ -46,9 +46,9 @@ class GestureEngine:
         
         return False
         
-    def _t_pose(self, keypoints):
+    def _arms_crossed(self, keypoints):
         
-        if not self._is_visible(keypoints[5]) or not self._is_visible(keypoints[6]) or not self._is_visible(keypoints[7]) or not self._is_visible(keypoints[8]) or not self._is_visible(keypoints[9]) or not self._is_visible(keypoints[10]):
+        if not self._is_visible(keypoints[5]) or not self._is_visible(keypoints[6]) or not self._is_visible(keypoints[9]) or not self._is_visible(keypoints[10]):
             return False
         
         left_shoulder = keypoints[5]
@@ -58,13 +58,11 @@ class GestureEngine:
         left_elbow = keypoints[7]
         right_elbow = keypoints[8]
         
-        # Check if the arms are horizontal
-        if abs(left_wrist[1] - left_shoulder[1]) < 40:
-            if abs(right_wrist[1] - right_shoulder[1]) < 40:
-                # The arms are outward
-                if right_wrist[0] > right_elbow[0] > right_shoulder[0]:
-                    if left_wrist[0] < left_elbow[0] < left_shoulder[0]:
-                        return True
+        # Check if the right wrist is more than left wrist
+        if left_wrist[0] > right_wrist[0]:
+            # Extra guard that the wrists are crossed below the shoulder
+            if (left_wrist[1] > left_shoulder[1]) and (right_wrist[1] > right_shoulder[1]):
+                return True
                     
         return False
     
@@ -74,7 +72,7 @@ class GestureEngine:
         
         if self._both_arms_raised(keypoints):
             return 'STOP'
-        elif self._t_pose(keypoints):
+        elif self._arms_crossed(keypoints):
             return 'HOVER'
         elif self._right_arm_raised(keypoints):
             return 'FOLLOW'

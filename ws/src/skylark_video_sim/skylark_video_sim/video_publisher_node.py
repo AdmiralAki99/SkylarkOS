@@ -20,6 +20,7 @@ class VideoPublisherNode(Node):
         
         self.declare_parameter('filename', '')
         filename = self.get_parameter('filename').get_parameter_value().string_value
+        self._is_webcam = filename.isdigit()
         
         self.get_logger().info(f'Opening video: {filename}')
         
@@ -27,33 +28,35 @@ class VideoPublisherNode(Node):
             self.get_logger().error('No filename provided')
             return
         
-        self._capture = cv.VideoCapture(filename)
+        source = int(filename) if self._is_webcam else filename
+        self._capture = cv.VideoCapture(source)
         if not self._capture.isOpened():
             self.get_logger().error(f'Failed to open video: {filename}')
             return
         
-        self._frames = []
-        while True:
-            ok, frame = self._capture.read()
-            if not ok:
-                break
-            self._frames.append(frame)
-        
-        fps = self._capture.get(cv.CAP_PROP_FPS) or 30.0
-        self.get_logger().info(f'Video FPS: {fps}')
-        self._capture.release()
-        self._index = 0
-        self.get_logger().info(f'Loaded {len(self._frames)} frames into memory')
-
         # Now bridging the OpenCV to ROS2
         self._bridge = CvBridge()
         self._publisher = self.create_publisher(Image, '/camera/image_raw', qos)
         
-        self._messages = []
-        for frame in self._frames:
-            self._messages.append(self._bridge.cv2_to_imgmsg(frame, 'bgr8'))
-        self._frames = None  # free the raw frame memory
-        self.get_logger().info(f'Pre-built {len(self._messages)} messages')
+        if not self._is_webcam:
+            self._frames = []
+            while True:
+                ok, frame = self._capture.read()
+                if not ok:
+                    break
+                self._frames.append(frame)
+        
+            fps = self._capture.get(cv.CAP_PROP_FPS) or 30.0
+            self.get_logger().info(f'Video FPS: {fps}')
+            self._capture.release()
+            self._index = 0
+            self.get_logger().info(f'Loaded {len(self._frames)} frames into memory')
+        
+            self._messages = []
+            for frame in self._frames:
+                self._messages.append(self._bridge.cv2_to_imgmsg(frame, 'bgr8'))
+            self._frames = None  # free the raw frame memory
+            self.get_logger().info(f'Pre-built {len(self._messages)} messages')
 
         thread = threading.Thread(target=self._publish_loop)
         thread.daemon = True
@@ -67,9 +70,14 @@ class VideoPublisherNode(Node):
             elapsed = time.time() - t_start
             time.sleep(max(0, interval - elapsed))
     def timer_callback(self):
-        msg = self._messages[self._index % len(self._messages)]
-        self._index += 1
-        self._publisher.publish(msg)
+        if self._is_webcam:
+            success, frame = self._capture.read()
+            if success:
+                self._publisher.publish(self._bridge.cv2_to_imgmsg(frame, 'bgr8'))
+        else:
+            msg = self._messages[self._index % len(self._messages)]
+            self._index += 1
+            self._publisher.publish(msg)
             
             
             
