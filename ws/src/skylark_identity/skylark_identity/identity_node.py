@@ -1,5 +1,5 @@
 import rclpy
-from  rclpy.node import Node
+from rclpy.lifecycle import State, TransitionCallbackReturn, Node
 from sensor_msgs.msg import Image
 from std_msgs.msg import Int32
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
@@ -7,11 +7,6 @@ from skylark_interfaces.msg import TrackArray
 from skylark_identity.face_engine import FaceEngine
 from skylark_identity.reid_engine import ReIDEngine
 from cv_bridge import CvBridge
-import cv2 as cv
-
-import os
-import subprocess
-import sys
 
 STATE_SEARCHING = 'SEARCHING'
 STATE_LOCKED = 'LOCKED'
@@ -22,6 +17,8 @@ class IdentityNode(Node):
     def __init__(self):
         super().__init__('identity_node')
         
+    def on_configure(self, state: State):
+        
         self.state = STATE_SEARCHING
         self.locked_id = -1
         self.frame_counter = 0
@@ -30,14 +27,7 @@ class IdentityNode(Node):
         
         self.reid_crops = []
         self.reid_enroll_target = 10
-        
-        qos = QoSProfile(
-            reliability=ReliabilityPolicy.BEST_EFFORT,
-            history=HistoryPolicy.KEEP_LAST,
-            depth=1
-        )
-        
-        
+            
         self.latest_frame = None
         
         self.declare_parameter('embedding_path','/app/data/owner_embedding.npy')
@@ -53,6 +43,32 @@ class IdentityNode(Node):
         self.reid_model_path = self.get_parameter('reid_model_path').get_parameter_value().string_value
         
         self.get_logger().info('Loaded Enrollment Info- Need to check if user is enrolled...')
+             
+        self.engine = FaceEngine(model_pack='buffalo_sc', embedding_path= self.embedding_path)
+        
+        self.reid_engine = ReIDEngine(model_path=self.reid_model_path, embedding_path=self.reid_embedding_path)
+        
+        self.get_logger().info('Initialized Face Engine - Need to check enrollment now...')
+        
+        # Checking if the person is enrolled
+        if not self.engine.is_enrolled():
+            # There is no user enrollment so the server needs to be deployed
+            self.get_logger().info("User is not enrolled...")
+            return TransitionCallbackReturn.FAILURE
+            
+        self.get_logger().info('Face Engine Initialized- User is enrolled with embeddings...')
+        
+        self.identity_publisher = self.create_publisher(Int32, '/identity/locked_track_id', 10)
+        
+        self.bridge = CvBridge()
+        return TransitionCallbackReturn.SUCCESS
+    
+    def on_activate(self, state: State):
+        qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1
+        )
         
         self.image_subscriber = self.create_subscription(
             Image,
@@ -72,24 +88,31 @@ class IdentityNode(Node):
         
         self.get_logger().info('Created Subscriber for SORT tracks...')
         
-        self.engine = FaceEngine(model_pack='buffalo_sc', embedding_path= self.embedding_path)
+        return TransitionCallbackReturn.SUCCESS
+    
+    def on_deactivate(self, state: State):
         
-        self.reid_engine = ReIDEngine(model_path=self.reid_model_path, embedding_path=self.reid_embedding_path)
+        self.destroy_subscription(self.image_subscriber)
+        self.destroy_subscription(self.tracks_subscriber)
         
-        self.get_logger().info('Initialized Face Engine - Need to check enrollment now...')
+        self.image_subscriber = None
+        self.tracks_subscriber = None
+        self.latest_frame = None
+        self.get_logger().info('Destroyed the Subscribers and local variables...')
+        return TransitionCallbackReturn.SUCCESS
+    
+    def on_cleanup(self, state: State):
+        self.destroy_publisher(self.identity_publisher)
         
-        if not self.engine.is_enrolled():
-            # There is no user enrollment so the server needs to be deployed
-            self.get_logger().info('Not enrolled — starting enrollment server...')
-            server_path = os.path.join(os.path.dirname(__file__), 'enroll_server.py')
-            self.enroll_process = subprocess.Popen([sys.executable, server_path])
-            self.enroll_check_timer = self.create_timer(2.0, self.check_enrollment)
-            
-        self.get_logger().info('Initialized Face Engine Complete- User is enrolled with embeddings...')
+        self.engine = None
+        self.reid_engine = None
         
-        self.identity_publisher = self.create_publisher(Int32, '/identity/locked_track_id', 10)
+        self.get_logger().info('Cleaned up initialized Face and ReID engines...')
         
-        self.bridge = CvBridge()
+        return TransitionCallbackReturn.SUCCESS
+    
+    def on_shutdown(self, state: State):
+        return TransitionCallbackReturn.SUCCESS
         
     def image_callback(self, message):
         # Make an image out of the message
@@ -173,19 +196,15 @@ class IdentityNode(Node):
         msg = Int32()
         msg.data = self.locked_id
         self.identity_publisher.publish(msg)
-        
-    def check_enrollment(self):
-        # Need to check if the user embeddings exist
-        self.engine._load_embedding(self.embedding_path)
-        if self.engine.is_enrolled():
-            self.get_logger().info('Enrollment complete — shutting down enrollment server')
-            self.enroll_process.terminate()
-            self.enroll_process = None
-            self.enroll_check_timer.cancel()
-            self.enroll_check_timer = None
                    
 def main(args= None):
     rclpy.init(args=args)
     node = IdentityNode()
-    rclpy.spin(node)
-    rclpy.shutdown()
+    executor = rclpy.executors.SingleThreadedExecutor()
+    executor.add_node(node)
+    try:
+        executor.spin()
+    finally:
+        executor.shutdown()
+        node.destroy_node()
+        rclpy.shutdown()
