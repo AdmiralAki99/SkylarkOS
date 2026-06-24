@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin: 0; background: #000; overflow: hidden; }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes checkPopIn {
+    0% { transform: scale(0); opacity: 0; }
+    55% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes scanLineMove {
+    0%, 100% { top: 15%; }
+    50% { top: 85%; }
+  }
+  @keyframes softPulse {
+    0%, 100% { opacity: 0.04; }
+    50% { opacity: 0.13; }
+  }
+  .btn {
+    width: 100%; padding: 17px 0; background: #30D158; border-radius: 14px;
+    text-align: center; font-size: 17px; font-weight: 600; color: #fff;
+    cursor: pointer; letter-spacing: -0.2px;
+    transition: transform 0.12s ease, background 0.12s ease;
+    box-sizing: border-box;
+  }
+  .btn:hover { background: #2BC350; }
+  .btn:active { background: #24A844; transform: scale(0.97); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="root" style="width:100%;min-height:100vh;min-height:100dvh;background:#000;display:flex;flex-direction:column;align-items:center;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue',sans-serif;color:#fff;-webkit-font-smoothing:antialiased;overflow-y:auto;user-select:none">
+
+  <!-- Top bar -->
+  <div style="width:100%;max-width:430px;padding:44px 24px 0;box-sizing:border-box;flex-shrink:0;min-height:68px">
+    <span id="cancelBtn" style="color:#30D158;font-size:17px;font-weight:400;cursor:pointer;letter-spacing:-0.2px">Cancel</span>
+  </div>
+
+  <!-- Center content -->
+  <div style="flex:1;width:100%;max-width:430px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 40px;box-sizing:border-box">
+
+    <!-- Ring + camera area -->
+    <div style="position:relative;width:clamp(200px,36vh,260px);height:clamp(200px,36vh,260px);flex-shrink:0">
+
+      <!-- Camera feed -->
+      <div id="videoWrap" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:168px;height:168px;border-radius:50%;overflow:hidden;z-index:1;opacity:0;transition:opacity 0.55s ease">
+        <video id="video" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;transform:scaleX(-1)"></video>
+        <div id="scanLine" class="hidden" style="position:absolute;left:8%;right:8%;height:2px;background:linear-gradient(90deg,transparent,rgba(48,209,88,0.5),transparent);animation:scanLineMove 2.8s ease-in-out infinite;border-radius:1px;z-index:3"></div>
+        <div id="scanPulse" class="hidden" style="position:absolute;inset:0;background:radial-gradient(circle,rgba(48,209,88,0.06) 0%,transparent 65%);animation:softPulse 2.5s ease-in-out infinite"></div>
+      </div>
+
+      <!-- Fallback placeholder -->
+      <div id="fallback" class="hidden" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:168px;height:168px;border-radius:50%;z-index:1;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.025);animation:fadeIn 0.4s ease">
+        <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+          <circle cx="36" cy="36" r="24" stroke="rgba(255,255,255,0.22)" stroke-width="1.8" fill="none"></circle>
+          <circle cx="29" cy="32" r="2.5" fill="rgba(255,255,255,0.22)"></circle>
+          <circle cx="43" cy="32" r="2.5" fill="rgba(255,255,255,0.22)"></circle>
+          <path d="M29.5 43 Q36 49 42.5 43" stroke="rgba(255,255,255,0.22)" stroke-width="1.8" fill="none" stroke-linecap="round"></path>
+        </svg>
+      </div>
+
+      <!-- Ring SVG -->
+      <svg id="ring" width="100%" height="100%" viewBox="0 0 300 300" style="position:absolute;top:0;left:0;z-index:2"></svg>
+      <div id="debug" style="position:absolute;bottom:-24px;left:0;right:0;text-align:center;color:rgba(255,255,255,0.5);font-size:11px;z-index:10"></div>
+
+    </div>
+
+    <!-- Screen text -->
+    <div style="width:100%;margin-top:40px;min-height:90px">
+
+      <div id="textIntro" style="text-align:center;animation:fadeInUp 0.6s cubic-bezier(0.25,0.46,0.45,0.94) both">
+        <div style="font-size:27px;font-weight:700;letter-spacing:-0.6px;line-height:1.15;color:#fff;margin-bottom:14px">How to Set Up SecureID</div>
+        <div style="font-size:15px;line-height:1.6;color:rgba(255,255,255,0.48);max-width:290px;margin:0 auto">First, position your face in the camera frame. Then move your head in a circle to show all the angles of your face.</div>
+      </div>
+
+      <div id="textScanning" class="hidden" style="text-align:center;animation:fadeInUp 0.5s cubic-bezier(0.25,0.46,0.45,0.94) both">
+        <div style="font-size:20px;font-weight:600;letter-spacing:-0.3px;line-height:1.4;color:#fff;max-width:260px;margin:0 auto">Move your head slowly to complete the circle.</div>
+      </div>
+
+      <div id="textBetween" class="hidden" style="text-align:center;animation:fadeInUp 0.55s cubic-bezier(0.25,0.46,0.45,0.94) both">
+        <div style="font-size:27px;font-weight:700;letter-spacing:-0.6px;line-height:1.15;color:#fff;margin-bottom:14px">First Scan Complete</div>
+        <div style="font-size:15px;line-height:1.6;color:rgba(255,255,255,0.48);max-width:280px;margin:0 auto">Great progress. Now begin a second scan to capture additional angles of your face.</div>
+      </div>
+
+      <div id="textSuccess" class="hidden" style="text-align:center;animation:fadeInUp 0.55s cubic-bezier(0.25,0.46,0.45,0.94) both">
+        <div style="font-size:27px;font-weight:700;letter-spacing:-0.6px;line-height:1.15;color:#fff;margin-bottom:14px">SecureID is Now Set Up</div>
+        <div style="font-size:15px;line-height:1.6;color:rgba(255,255,255,0.48);max-width:280px;margin:0 auto">You can now use SecureID for identity verification and secure access.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Bottom actions -->
+  <div style="width:100%;max-width:430px;padding:0 40px 36px;box-sizing:border-box;flex-shrink:0">
+    <div id="actionIntro" style="animation:fadeInUp 0.6s 0.1s cubic-bezier(0.25,0.46,0.45,0.94) both">
+      <div id="getStartedBtn" class="btn">Get Started</div>
+    </div>
+    <div id="actionScanning" class="hidden" style="text-align:center;animation:fadeIn 0.4s ease both">
+      <span style="color:#30D158;font-size:15px;cursor:pointer">Accessibility Options</span>
+    </div>
+    <div id="actionBetween" class="hidden" style="animation:fadeInUp 0.5s cubic-bezier(0.25,0.46,0.45,0.94) both">
+      <div id="continueBtn" class="btn">Continue</div>
+    </div>
+    <div id="actionSuccess" class="hidden" style="animation:fadeInUp 0.5s cubic-bezier(0.25,0.46,0.45,0.94) both">
+      <div id="doneBtn" class="btn">Done</div>
+    </div>
+  </div>
+
+</div>
+
+<canvas id="captureCanvas" style="display:none"></canvas>
+
+<script>
+(function() {
+  var state = { screen: 'intro', progress: 0, cameraReady: false };
+  var stream = null;
+  var raf = null;
+  var frameInterval = null;
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  var pollInterval = null;
+
+  var video = document.getElementById('video');
+  var videoWrap = document.getElementById('videoWrap');
+  var ring = document.getElementById('ring');
+  var captureCanvas = document.getElementById('captureCanvas');
+
+  var els = {
+    textIntro:      document.getElementById('textIntro'),
+    textScanning:   document.getElementById('textScanning'),
+    textBetween:    document.getElementById('textBetween'),
+    textSuccess:    document.getElementById('textSuccess'),
+    actionIntro:    document.getElementById('actionIntro'),
+    actionScanning: document.getElementById('actionScanning'),
+    actionBetween:  document.getElementById('actionBetween'),
+    actionSuccess:  document.getElementById('actionSuccess'),
+    cancelBtn:      document.getElementById('cancelBtn'),
+    scanLine:       document.getElementById('scanLine'),
+    scanPulse:      document.getElementById('scanPulse'),
+    fallback:       document.getElementById('fallback'),
+  };
+
+  function show(el) { el.classList.remove('hidden'); }
+  function hide(el) { el.classList.add('hidden'); }
+  function toggle(el, v) { v ? show(el) : hide(el); }
+
+  function render() {
+    var s = state.screen;
+    var isIntro    = s === 'intro';
+    var isScanning = s === 'scanning1' || s === 'scanning2';
+    var isBetween  = s === 'scan1Complete';
+    var isSuccess  = s === 'success';
+
+    toggle(els.textIntro,      isIntro);
+    toggle(els.textScanning,   isScanning);
+    toggle(els.textBetween,    isBetween);
+    toggle(els.textSuccess,    isSuccess);
+    toggle(els.actionIntro,    isIntro);
+    toggle(els.actionScanning, isScanning);
+    toggle(els.actionBetween,  isBetween);
+    toggle(els.actionSuccess,  isSuccess);
+    toggle(els.cancelBtn,      !isSuccess);
+    toggle(els.scanLine,       isScanning);
+    toggle(els.scanPulse,      isScanning);
+    toggle(els.fallback,       isScanning && !state.cameraReady);
+
+    videoWrap.style.opacity = isScanning ? '1' : isBetween ? '0.35' : '0';
+
+    var rp = isIntro ? 0 : (isBetween || isSuccess) ? 100 : state.progress;
+    drawRing(rp, isIntro, isBetween || isSuccess);
+  }
+
+  function drawRing(prog, showFace, showCheck) {
+    var sz = 300, cx = 150, cy = 150;
+    var accent = '#30D158', dim = 'rgba(255,255,255,0.12)';
+    while (ring.firstChild) ring.removeChild(ring.firstChild);
+
+    for (var i = 0; i < 72; i++) {
+      var a = (i / 72 * 360 - 90) * Math.PI / 180;
+      var w = Math.sin(i * 0.35) * 0.28 + Math.sin(i * 0.12 + 1.5) * 0.18 + Math.sin(i * 0.55 + 0.7) * 0.14;
+      var h = Math.max(0.32, 0.5 + w);
+      var ri = sz * 0.335, ro = ri + sz * 0.092 * h;
+      var line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('x1', cx + Math.cos(a) * ri);
+      line.setAttribute('y1', cy + Math.sin(a) * ri);
+      line.setAttribute('x2', cx + Math.cos(a) * ro);
+      line.setAttribute('y2', cy + Math.sin(a) * ro);
+      line.setAttribute('stroke', (i / 72 * 100) < prog ? accent : dim);
+      line.setAttribute('stroke-width', '3');
+      line.setAttribute('stroke-linecap', 'round');
+      line.style.transition = 'stroke 0.22s ease';
+      ring.appendChild(line);
+    }
+
+    if (showFace) {
+      var r = sz * 0.18;
+      var fc = document.createElementNS(SVG_NS, 'circle');
+      fc.setAttribute('cx', cx); fc.setAttribute('cy', cy); fc.setAttribute('r', r);
+      fc.setAttribute('fill', 'none'); fc.setAttribute('stroke', 'rgba(255,255,255,0.78)'); fc.setAttribute('stroke-width', '2.2');
+      ring.appendChild(fc);
+      [[-0.36, -0.18], [0.36, -0.18]].forEach(function(d) {
+        var dot = document.createElementNS(SVG_NS, 'circle');
+        dot.setAttribute('cx', cx + r * d[0]); dot.setAttribute('cy', cy + r * d[1]); dot.setAttribute('r', r * 0.11);
+        dot.setAttribute('fill', 'rgba(255,255,255,0.78)');
+        ring.appendChild(dot);
+      });
+      var smile = document.createElementNS(SVG_NS, 'path');
+      smile.setAttribute('d', 'M '+(cx-r*0.22)+' '+(cy+r*0.24)+' Q '+cx+' '+(cy+r*0.46)+' '+(cx+r*0.22)+' '+(cy+r*0.24));
+      smile.setAttribute('fill', 'none'); smile.setAttribute('stroke', 'rgba(255,255,255,0.78)');
+      smile.setAttribute('stroke-width', '1.8'); smile.setAttribute('stroke-linecap', 'round');
+      ring.appendChild(smile);
+    }
+
+    if (showCheck) {
+      var g = document.createElementNS(SVG_NS, 'g');
+      g.style.transformOrigin = cx + 'px ' + cy + 'px';
+      g.style.animation = 'checkPopIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275) forwards';
+      var bg = document.createElementNS(SVG_NS, 'circle');
+      bg.setAttribute('cx', cx); bg.setAttribute('cy', cy); bg.setAttribute('r', sz * 0.11);
+      bg.setAttribute('fill', '#30D158');
+      g.appendChild(bg);
+      var mk = document.createElementNS(SVG_NS, 'polyline');
+      mk.setAttribute('points',
+        (cx-sz*0.042)+','+(cy+sz*0.004)+' '+
+        (cx-sz*0.008)+','+(cy+sz*0.042)+' '+
+        (cx+sz*0.05)+','+(cy-sz*0.032));
+      mk.setAttribute('fill', 'none'); mk.setAttribute('stroke', '#fff');
+      mk.setAttribute('stroke-width', '3'); mk.setAttribute('stroke-linecap', 'round'); mk.setAttribute('stroke-linejoin', 'round');
+      g.appendChild(mk);
+      ring.appendChild(g);
+    }
+  }
+
+  async function openCamera() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 } }
+      });
+      video.srcObject = stream;
+      await video.play();
+      state.cameraReady = true;
+      render();
+    } catch(e) {
+      console.warn('Camera unavailable:', e.message);
+    }
+  }
+
+  function closeCamera() {
+    if (stream) { stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+    video.srcObject = null;
+    state.cameraReady = false;
+    stopFrameCapture();
+  }
+
+  function startFrameCapture() {
+    frameInterval = setInterval(function() {
+      if (!stream || !state.cameraReady) return;
+      captureCanvas.width = 320; captureCanvas.height = 320;
+      var ctx = captureCanvas.getContext('2d');
+      ctx.save(); ctx.translate(320, 0); ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, 320, 320);
+      ctx.restore();
+      captureCanvas.toBlob(function(blob) {
+        var form = new FormData();
+        form.append('frame', blob, 'frame.jpg');
+        fetch('/enroll/frame', { method: 'POST', body: form }).catch(function(){});
+      }, 'image/jpeg', 0.8);
+    }, 500);
+  }
+
+  function stopFrameCapture() {
+    if (frameInterval) { clearInterval(frameInterval); frameInterval = null; }
+  }
+
+  function startPolling() {
+    pollInterval = setInterval(function() {
+      fetch('/enroll/status')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          state.progress = (data.coverage || 0) * 100;
+          document.getElementById('debug').textContent = 'cov:' + (data.coverage||0).toFixed(2) + ' prog:' + state.progress.toFixed(0) + ' enrolled:' + data.enrolled;
+          render();
+          if (data.enrolled) {
+            stopPolling();
+            stopFrameCapture();
+            if (state.screen === 'scanning1') {
+              state.screen = 'scan1Complete';
+            } else {
+              closeCamera();
+              state.screen = 'success';
+            }
+            render();
+          }
+        })
+        .catch(function(e) {
+          document.getElementById('debug').textContent = 'fetch error: ' + e.message;
+        });
+    }, 500);
+  }
+
+  function stopPolling() {
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  }
+
+  function teardown() {
+    closeCamera();
+    stopPolling();
+  }
+
+  document.getElementById('getStartedBtn').addEventListener('click', function() {
+    state.screen = 'scanning1'; state.progress = 0; render();
+    openCamera().then(function() {
+      startFrameCapture();
+      startPolling();
+    });
+  });
+
+  document.getElementById('continueBtn').addEventListener('click', function() {
+    state.screen = 'scanning2'; state.progress = 0; render();
+    startFrameCapture();
+    startPolling();
+  });
+
+  document.getElementById('doneBtn').addEventListener('click', function() {
+    teardown(); state = { screen: 'intro', progress: 0, cameraReady: false }; render();
+  });
+
+  document.getElementById('cancelBtn').addEventListener('click', function() {
+    teardown(); state = { screen: 'intro', progress: 0, cameraReady: false }; render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
