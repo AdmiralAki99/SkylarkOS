@@ -2,12 +2,12 @@
 set -e
 
 # Source ROS2 and workspace
-source /opt/ros/humble/setup.bash
+source /opt/ros/humble/install/setup.bash
 source /skylark/install/setup.bash
 
 # Validate required model files are mounted
 REQUIRED_MODELS=(
-    "/skylark/models/yolo11n.onnx"
+    "/skylark/models/model.onnx"
     "/skylark/models/yolo11n-pose.onnx"
     "/skylark/models/osnet_x0_25.onnx"
     "/skylark/models/w600k_mbf.onnx"
@@ -23,12 +23,13 @@ for model in "${REQUIRED_MODELS[@]}"; do
 done
 
 # Validate owner embedding
-if [ ! -f "/skylark/config/owner_embedding.npy" ]; then
-    echo "[skylark] WARNING: No owner embedding found at /skylark/config/owner_embedding.npy"
+if [ ! -f "/skylark/data/owner_embedding.npy" ]; then
+    echo "[skylark] WARNING: No owner embedding found at /skylark/data/owner_embedding.npy"
     echo "[skylark] Run the enrollment server first: ros2 run skylark_identity enroll_server"
 fi
 
+export GST_DEBUG=3
 echo "[skylark] Starting SkylarkOS on $(hostname)"
 echo "[skylark] ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}"
 
-exec "$@"
+exec python3 /skylark/scripts/bootstrap.py

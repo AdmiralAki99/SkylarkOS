@@ -16,8 +16,10 @@ class CameraNode : public rclcpp::Node
         declare_parameter("width", 640);
         declare_parameter("height", 480);
         declare_parameter("fps", 60);
-        declare_parameter("udp_host", std::string("10.0.0.2"));
-        declare_parameter("udp_port", 5600);
+        declare_parameter("udp_host_gs", std::string("10.0.0.2"));
+        declare_parameter("udp_port_gs", 5600);
+        declare_parameter("udp_host_watch", std::string("10.0.0.3"));
+        declare_parameter("udp_port_watch", 5601);
 
         // Getting parameters
         sensor_id_ = get_parameter("sensor_id").as_int();
@@ -25,8 +27,10 @@ class CameraNode : public rclcpp::Node
         height_ = get_parameter("height").as_int();
         fps_ = get_parameter("fps").as_int();
 
-        udp_host_ = get_parameter("udp_host").as_string();
-        udp_port_ = get_parameter("udp_port").as_int();
+        udp_host_gs_ = get_parameter("udp_host_gs").as_string();
+        udp_port_gs_ = get_parameter("udp_port_gs").as_int();
+        udp_host_watch_ = get_parameter("udp_host_watch").as_string();
+        udp_port_watch_ = get_parameter("udp_port_watch").as_int();
 
         auto qos = rclcpp::QoS(1).best_effort();
 
@@ -42,13 +46,19 @@ class CameraNode : public rclcpp::Node
                                             "t. ! queue max-size-buffers=2 leaky=upstream max-size-time=0 max-size-bytes=0 ! "
                                             "nvvidconv ! video/x-raw,format=BGRx ! "
                                             "appsink name=raw_sink emit-signals=true max-buffers=1 drop=true "
-
                                             "t. ! queue max-size-buffers=2 leaky=upstream max-size-time=0 max-size-bytes=0 ! "
-                                            "nvvidconv ! video/x-raw,format=I420 ! "
-                                            "videorate ! video/x-raw,framerate=30/1 ! "
-                                            "nvvidconv ! video/x-raw(memory:NVMM),width=640,height=360,format=NV12 ! "
-                                            "nvjpegenc quality=20 ! rtpjpegpay ! "
-                                            "udpsink host=" + udp_host_ + " port=" + std::to_string(udp_port_) + " sync=true buffer-size=8388608";
+                                            "nvvidconv ! video/x-raw,format=NV12,width=480,height=480 ! x264enc tune=zerolatency speed-preset=ultrafast profile=baseline ! "
+                                            "rtph264pay config-interval=1 pt=96 ! "
+                                            "tee name=t2 "
+                                            "t2. ! queue ! udpsink host=" + udp_host_gs_ + " port=" + std::to_string(udp_port_gs_) + " sync=false "
+                                            "t2. ! queue ! udpsink host=" + udp_host_watch_ + " port=" + std::to_string(udp_port_watch_) + " sync=false";
+
+                                            // "t. ! queue max-size-buffers=2 leaky=upstream max-size-time=0 max-size-bytes=0 ! "
+                                            // "nvvidconv ! video/x-raw,format=I420 ! "
+                                            // "videorate ! video/x-raw,framerate=25/1 ! "
+                                            // "nvvidconv ! video/x-raw(memory:NVMM),width=640,height=360,format=NV12 ! "
+                                            // "nvjpegenc quality=20 ! rtpjpegpay ! "
+                                            // "udpsink host=" + udp_host_ + " port=" + std::to_string(udp_port_) + " sync=true buffer-size=8388608 max-bitrate=2000000";
 
         GError* error = nullptr;
         pipeline_ = gst_parse_launch(pipeline_description.c_str(), &error);
@@ -95,8 +105,10 @@ class CameraNode : public rclcpp::Node
     int width_ = 640;
     int height_ = 480;
     int fps_ = 60;
-    int udp_port_;
-    std::string udp_host_;
+    int udp_port_gs_;
+    std::string udp_host_gs_;
+    int udp_port_watch_;
+    std::string udp_host_watch_;
 
     // void start_pipeline(){
 

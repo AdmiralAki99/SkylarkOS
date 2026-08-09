@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
+from launch.actions import ExecuteProcess, TimerAction
 
 def generate_launch_description():
     return LaunchDescription([
@@ -7,8 +8,9 @@ def generate_launch_description():
             package='skylark_video_sim',
             executable= 'video_publisher_node',
             parameters=[{'filename': '/mnt/d/dev/SkylarkOS/ryan_gesture_test.mp4'}]
+            # parameters=[{'filename': '0'}]
         ),
-        
+
         Node(
             package='skylark_perception',
             executable='perception_node',
@@ -27,7 +29,16 @@ def generate_launch_description():
         
         Node(
             package='skylark_control',
-            executable='control_node'
+            executable='control_node',
+            parameters=[{
+                'takeoff_altitude': 1.5,
+                'target_bbox_height_ratio': 0.4,
+                'max_velocity': 1.0,
+                'kp_lateral': 1.2,
+                'kd_lateral': 0.1,
+                'kp_distance': 1.0,
+                'kd_distance': 0.1,
+            }]
         ),
         
         Node(
@@ -50,6 +61,84 @@ def generate_launch_description():
                 'pose_model_path': '/mnt/d/dev/SkylarkOS/models/yolo11n-pose.onnx',
                 'keypoint_confidence_threshold': 0.3
             }]
-        )
+        ),
+        Node(
+            package='skylark_telemetry',
+            executable='telemetry_node',
+        ),
+        
+        TimerAction(
+            period=75.0,
+            actions=[
+                ExecuteProcess(
+                    cmd=['ros2', 'lifecycle', 'set', '/identity_node', 'configure'],
+                    output='screen'
+                )
+            ]
+        ),
 
+        TimerAction(
+            period=85.0,
+            actions=[
+                ExecuteProcess(
+                    cmd=['ros2', 'lifecycle', 'set', '/identity_node', 'activate'],
+                    output='screen'
+                )
+            ]
+        ),
+        TimerAction(
+            period=40.0,
+            actions=[
+                ExecuteProcess(
+                    cmd=['ros2', 'lifecycle', 'set', '/perception_node', 'configure'],
+                    output='screen'
+                )
+            ]
+        ),
+        TimerAction(
+            period=50.0,
+            actions=[
+                ExecuteProcess(
+                    cmd=['ros2', 'lifecycle', 'set', '/perception_node', 'activate'],
+                    output='screen'
+                )
+            ]
+        ),
+        TimerAction(
+            period=55.0,
+            actions=[
+                ExecuteProcess(
+                    cmd=['ros2', 'lifecycle', 'set', '/tracking_node', 'configure'],
+                    output='screen'
+                )
+            ]
+        ),
+
+        TimerAction(
+            period=60.0,
+            actions=[
+                ExecuteProcess(
+                    cmd=['ros2', 'lifecycle', 'set', '/tracking_node', 'activate'],
+                    output='screen'
+                )
+            ]
+        ),
+        TimerAction(
+            period=65.0,
+            actions=[
+                ExecuteProcess(
+                    cmd=['ros2', 'lifecycle', 'set', '/control_node', 'configure'],
+                    output='screen'
+                )
+            ]
+        ),
+        TimerAction(
+            period=70.0,
+            actions=[
+                ExecuteProcess(
+                    cmd=['ros2', 'lifecycle', 'set', '/control_node', 'activate'],
+                    output='screen'
+                )
+            ]
+        ),
     ])
