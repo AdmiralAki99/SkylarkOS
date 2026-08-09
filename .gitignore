@@ -66,6 +66,13 @@ __pycache__/
 # VSCode
 .vscode/
 
+# Claude Code MCP server config (personal/local tool config)
+.mcp.json
+
+# Root-level colcon build logs
+/log/
+*.log
+
 # OS files
 .DS_Store
 Thumbs.db
