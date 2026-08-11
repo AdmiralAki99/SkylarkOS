@@ -78,9 +78,7 @@ def main():
     # Launching the drone
     print("[Skylark] Starting device...")
     ros2_bin  = shutil.which('ros2')
-    # os.execv(ros2_bin, LAUNCH_CMD)
-    print(ros2_bin)
-    print(EMBEDDING_PATH)
+    os.execv(ros2_bin, LAUNCH_CMD)
     
 if __name__ == '__main__':
     main()

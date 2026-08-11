@@ -8,8 +8,11 @@ ENV DEBIAN_FRONTEND=noninteractive \
     RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
     PYTHONUNBUFFERED=1
 
-# Add NVIDIA Jetson apt repositories for TensorRT and cuDNN
-COPY docker/jetson-ota-public.asc /etc/apt/trusted.gpg.d/jetson-ota-public.asc
+# Add NVIDIA Jetson apt repositories for TensorRT and cuDNN.
+# trusted.gpg.d needs a binary keyring, not the ASCII-armored .asc as-is
+COPY docker/jetson-ota-public.asc /tmp/jetson-ota-public.asc
+RUN gpg --dearmor -o /etc/apt/trusted.gpg.d/jetson-ota-public.gpg /tmp/jetson-ota-public.asc && \
+    rm /tmp/jetson-ota-public.asc
 RUN echo "deb https://repo.download.nvidia.com/jetson/common r36.4 main" > /etc/apt/sources.list.d/nvidia-jetson.list && \
     echo "deb https://repo.download.nvidia.com/jetson/t234 r36.4 main" >> /etc/apt/sources.list.d/nvidia-jetson.list
 
@@ -30,6 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly \
     gstreamer1.0-rtsp \
     libgstrtspserver-1.0-dev \
     libgstreamer1.0-dev \
@@ -113,12 +117,13 @@ RUN git clone --depth 1 --branch humble \
     https://github.com/ros-perception/vision_opencv.git \
     /skylark/ws/src/vision_opencv
 
-# Building the ROS workspace
-RUN bash -c "\
+# Building the ROS workspace.
+RUN --mount=type=cache,target=/skylark/build,id=skylark-colcon-build \
+    bash -c "\
     source /opt/ros/humble/install/setup.bash && \
     cd /skylark && \
     colcon build \
-        --cmake-args -DCMAKE_BUILD_TYPE=Release \
+        --cmake-args -DCMAKE_BUILD_TYPE=Release -DUSE_TENSORRT=ON \
         --event-handlers console_cohesion+ \
     "
 

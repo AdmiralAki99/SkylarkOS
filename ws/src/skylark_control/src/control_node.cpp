@@ -50,6 +50,8 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
         declare_parameter("kp_distance", 1.0f);
         declare_parameter("kd_distance", 0.1f);
         declare_parameter("max_velocity", 2.0f);
+        declare_parameter("api_nudge_velocity", 0.5f);
+        declare_parameter("api_nudge_duration", 0.3f);
 
         // Getting the parameters for the node
         offboard_setpoint_threshold_ = get_parameter("offboard_click_threshold").as_int();
@@ -65,6 +67,8 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
         kp_distance_ = get_parameter("kp_distance").as_double();
         kd_distance_ = get_parameter("kd_distance").as_double();
         max_velocity_ = get_parameter("max_velocity").as_double();
+        api_nudge_velocity_ = get_parameter("api_nudge_velocity").as_double();
+        api_nudge_duration_ = get_parameter("api_nudge_duration").as_double();
 
         RCLCPP_INFO(get_logger(), "Set the offboard setpoint counter.");
         RCLCPP_INFO(get_logger(), "Initialized the takeoff altitude for the drone.");
@@ -129,6 +133,14 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
         );
 
         RCLCPP_INFO(get_logger(), "Creating the Gesture command subscriber.");
+
+        api_command_subscription_ = this->create_subscription<std_msgs::msg::String>(
+            "/api/command",
+            10,
+            std::bind(&ControlNode::api_command_callback, this, std::placeholders::_1)
+        );
+
+        RCLCPP_INFO(get_logger(), "Creating the API command subscriber.");
 
         // Creating the landing service
         landing_service_ = this->create_service<std_srvs::srv::Trigger>(
@@ -218,12 +230,19 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
     int locked_tracking_id_ = -1;
 
     std::string current_gesture_ = "";
+    std::string current_api_command_ = "";
+
+    bool api_nudge_active_ = false;
+    rclcpp::Time api_nudge_start_;
+    float api_nudge_duration_ = 0.3f;   // seconds a MOVE_* command displaces the drone before falling back to tracking
+    float api_nudge_velocity_ = 0.5f;   // fixed velocity magnitude applied during a nudge
 
     rclcpp::Subscription<px4_msgs::msg::VehicleOdometry>::SharedPtr odometry_subscription_;
     rclcpp::Subscription<px4_msgs::msg::VehicleStatus>::SharedPtr vehicle_status_subscription_;
     rclcpp::Subscription<skylark_interfaces::msg::TrackArray>::SharedPtr tracked_array_subscription_;
     rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr identity_subscription_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr gesture_subscription_;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr api_command_subscription_;
     
     /*
     * OffboardControlMode is a message that tells what is the nature of the information being sent to the PX4
@@ -263,6 +282,10 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
 
     void gesture_callback(const std_msgs::msg::String::SharedPtr message){
         current_gesture_ = message->data;
+    }
+
+    void api_command_callback(const std_msgs::msg::String::SharedPtr message){
+        current_api_command_ = message->data;
     }
 
     void vehicle_status_callback(const px4_msgs::msg::VehicleStatus::SharedPtr message){
@@ -357,7 +380,60 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
             break;
             case FlightState::FLYING:
                 // This is the most important state and takes care of all the flying operations
-                
+
+                // API commands take precedence over gesture commands.
+                // A nudge in progress holds its velocity for api_nudge_duration_ before
+                // falling back to normal tracking/gesture behavior on a later tick.
+                if(api_nudge_active_){
+                    double elapsed = (this->get_clock()->now() - api_nudge_start_).seconds();
+                    if(elapsed >= api_nudge_duration_){
+                        api_nudge_active_ = false;
+                        command_vx_ = 0.0f;
+                        command_vy_ = 0.0f;
+                        pid_distance_.reset();
+                        pid_lateral_.reset();
+                    } else {
+                        break;
+                    }
+                }
+
+                if(current_api_command_ == "LAND"){
+                    current_api_command_ = "";
+                    flight_state_ = FlightState::LANDING;
+                    target_x_ = current_x_;
+                    target_y_ = current_y_;
+                    publish_vehicle_command(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_NAV_LAND);
+                    break;
+                }
+
+                if(current_api_command_ == "STOP" || current_api_command_ == "HOVER"){
+                    current_api_command_ = "";
+                    command_vx_ = 0.0f;
+                    command_vy_ = 0.0f;
+                    pid_distance_.reset();
+                    pid_lateral_.reset();
+                    break;
+                }
+
+                if(current_api_command_ == "MOVE_LEFT" || current_api_command_ == "MOVE_RIGHT" ||
+                   current_api_command_ == "MOVE_FORWARD" || current_api_command_ == "MOVE_BACKWARD"){
+                    if(current_api_command_ == "MOVE_LEFT")          { command_vy_ = -api_nudge_velocity_; command_vx_ = 0.0f; }
+                    else if(current_api_command_ == "MOVE_RIGHT")    { command_vy_ =  api_nudge_velocity_; command_vx_ = 0.0f; }
+                    else if(current_api_command_ == "MOVE_FORWARD")  { command_vx_ =  api_nudge_velocity_; command_vy_ = 0.0f; }
+                    else if(current_api_command_ == "MOVE_BACKWARD") { command_vx_ = -api_nudge_velocity_; command_vy_ = 0.0f; }
+
+                    current_api_command_ = "";
+                    api_nudge_active_ = true;
+                    api_nudge_start_ = this->get_clock()->now();
+                    pid_distance_.reset();
+                    pid_lateral_.reset();
+                    break;
+                }
+
+                // TAKEOFF (no-op while already flying) or any other unrecognized value —
+                // clear it so it doesn't linger and get rechecked forever.
+                current_api_command_ = "";
+
                 if(current_gesture_ == "LAND"){
                     current_gesture_ = "";
                     flight_state_ = FlightState::LANDING;
@@ -447,7 +523,7 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
                 }
 
                 // This state only looks at the landing of the drone (opposite of takeoff)
-                if(arming_state_ == px4_msgs::msg::VehicleStatus::ARMING_STATE_DISARMED){
+                if(arming_state_ == px4_msgs::msg::VehicleStatus::ARMING_STATE_STANDBY){
                     // The drone disarms once it touches down by default because of PX4
                     flight_state_ = FlightState::DISARMED;
                 }

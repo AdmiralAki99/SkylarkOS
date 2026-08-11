@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'api_node = skylark_api.api_node:main',
         ],
     },
 )

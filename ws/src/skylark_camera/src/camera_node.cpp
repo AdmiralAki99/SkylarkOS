@@ -43,15 +43,22 @@ class CameraNode : public rclcpp::Node
                                             "video/x-raw(memory:NVMM),width=" + std::to_string(width_) + ","
                                             "height=" + std::to_string(height_) + ",framerate=" + std::to_string(fps_) + "/1 ! "
                                             "tee name=t "
-                                            "t. ! queue max-size-buffers=2 leaky=upstream max-size-time=0 max-size-bytes=0 ! "
+                                            "t. ! queue max-size-buffers=2 leaky=downstream max-size-time=0 max-size-bytes=0 ! "
                                             "nvvidconv ! video/x-raw,format=BGRx ! "
                                             "appsink name=raw_sink emit-signals=true max-buffers=1 drop=true "
-                                            "t. ! queue max-size-buffers=2 leaky=upstream max-size-time=0 max-size-bytes=0 ! "
-                                            "nvvidconv ! video/x-raw,format=NV12,width=480,height=480 ! x264enc tune=zerolatency speed-preset=ultrafast profile=baseline ! "
+                                            "t. ! queue max-size-buffers=2 leaky=downstream max-size-time=0 max-size-bytes=0 ! "
+                                            "nvvidconv ! video/x-raw,format=NV12,width=480,height=480 ! x264enc bitrate=3000 key-int-max=60 tune=zerolatency speed-preset=ultrafast ! "
+                                            "video/x-h264,profile=baseline ! "
                                             "rtph264pay config-interval=1 pt=96 ! "
-                                            "tee name=t2 "
-                                            "t2. ! queue ! udpsink host=" + udp_host_gs_ + " port=" + std::to_string(udp_port_gs_) + " sync=false "
-                                            "t2. ! queue ! udpsink host=" + udp_host_watch_ + " port=" + std::to_string(udp_port_watch_) + " sync=false";
+                                            // Watch destination disabled for now — nothing is listening at
+                                            // udp_host_watch yet (watch software isn't built), so sending a
+                                            // second full-bitrate stream there was pure wasted Wi-Fi bandwidth
+                                            // competing with the ground-station stream. Re-add the tee/second
+                                            // udpsink once the watch is actually receiving.
+                                            "udpsink host=" + udp_host_gs_ + " port=" + std::to_string(udp_port_gs_) + " sync=false";
+                                            // "tee name=t2 "
+                                            // "t2. ! queue ! udpsink host=" + udp_host_gs_ + " port=" + std::to_string(udp_port_gs_) + " sync=false "
+                                            // "t2. ! queue ! udpsink host=" + udp_host_watch_ + " port=" + std::to_string(udp_port_watch_) + " sync=false";
 
                                             // "t. ! queue max-size-buffers=2 leaky=upstream max-size-time=0 max-size-bytes=0 ! "
                                             // "nvvidconv ! video/x-raw,format=I420 ! "

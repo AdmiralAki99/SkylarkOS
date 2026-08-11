@@ -1,5 +1,7 @@
 #!/bin/bash
+docker rm -f skylark 2>/dev/null
 docker run -d \
+  --name skylark \
   --runtime nvidia \
   --privileged \
   --device /dev/video0 \

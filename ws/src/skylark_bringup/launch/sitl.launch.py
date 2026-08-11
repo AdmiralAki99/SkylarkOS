@@ -66,7 +66,12 @@ def generate_launch_description():
             package='skylark_telemetry',
             executable='telemetry_node',
         ),
-        
+
+        Node(
+            package='skylark_api',
+            executable='api_node',
+        ),
+
         TimerAction(
             period=75.0,
             actions=[

@@ -88,26 +88,35 @@ def generate_launch_description():
             }]
         ),
         
-        TimerAction(
-            period=5.0,
-            actions=[
-                ExecuteProcess(
-                    cmd=['ros2', 'lifecycle', 'set', '/identity_node', 'configure'],
-                    output='screen'
-                )
-            ]
+        Node(
+            package='skylark_telemetry',
+            executable='telemetry_node',
         ),
         
-        TimerAction(
-            period=7.0,
-            actions=[
-                ExecuteProcess(
-                    cmd=['ros2', 'lifecycle', 'set', '/identity_node', 'activate'],
-                    output='screen'
-                )
-            ]
-        ),
-        
+        # identity_node's Node() launch action above is commented out
+        # (skylark_identity is a removal candidate per dev notes) — these
+        # lifecycle timers are disabled alongside it so they don't try to
+        # configure/activate a node that was never started.
+        # TimerAction(
+        #     period=5.0,
+        #     actions=[
+        #         ExecuteProcess(
+        #             cmd=['ros2', 'lifecycle', 'set', '/identity_node', 'configure'],
+        #             output='screen'
+        #         )
+        #     ]
+        # ),
+        #
+        # TimerAction(
+        #     period=7.0,
+        #     actions=[
+        #         ExecuteProcess(
+        #             cmd=['ros2', 'lifecycle', 'set', '/identity_node', 'activate'],
+        #             output='screen'
+        #         )
+        #     ]
+        # ),
+
         TimerAction(
             period=5.0,
             actions=[
