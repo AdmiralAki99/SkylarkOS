@@ -3,11 +3,12 @@ from  rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, qos_profile_sensor_data
 
 from std_msgs.msg import String
-from px4_msgs.msg import VehicleOdometry, VehicleStatus, BatteryStatus
+from px4_msgs.msg import VehicleOdometry, VehicleStatus, BatteryStatus, VehicleAttitude, SensorGps
 from skylark_interfaces.msg import TrackArray
 from std_srvs.srv import Trigger
 
 import asyncio
+import math
 import json
 import threading
 
@@ -41,7 +42,13 @@ class TelemetryNode(Node):
             "battery_remaining": 0.0,
             "altitude": 0.0,
             "tracks": [],
-            "gesture": ""
+            "gesture": "",
+            "heading": 0.0,
+            "pitch": 0.0,
+            "roll": 0.0,
+            "latitude": 0.0,
+            "longitude": 0.0,
+            "satellites": 0
         }
         
         self.get_logger().info('API Node initialized and publisher created for /api/command')
@@ -62,6 +69,13 @@ class TelemetryNode(Node):
             qos_profile_sensor_data
         )
         
+        self.vehicle_attitude_subscriber = self.create_subscription(
+            VehicleAttitude,
+            '/fmu/out/vehicle_attitude',
+            self.vehicle_attitude_callback,
+            qos
+        )
+        
         self.battery_status_subscriber = self.create_subscription(
             BatteryStatus,
             '/fmu/out/battery_status',
@@ -73,13 +87,20 @@ class TelemetryNode(Node):
             TrackArray,
             '/tracking/tracks',
             self.track_callback,
-            qos
+            qos_profile_sensor_data
         )
         
         self.gesture_subscriber = self.create_subscription(
             String,
             '/gesture/command',
             self.gesture_callback,
+            qos
+        )
+        
+        self.gps_subscriber = self.create_subscription(
+            SensorGps,
+            '/fmu/out/vehicle_gps_position',
+            self.gps_callback,
             qos
         )
         
@@ -106,7 +127,31 @@ class TelemetryNode(Node):
         with self.state_lock:
             self.state['battery_voltage'] = float(message.voltage_v)
             self.state['battery_remaining'] = float(message.remaining)
-
+            
+    def _quaternion_to_euler(self, x,y,z,w):
+        roll = math.atan2(2*(w*x + y*z),1-2*((x**2)+(y**2)))
+        pitch = math.asin(2*(w*y - z*x))
+        yaw = math.atan2(2*(w*z + x*y), 1-2*((y**2)+(z**2)))
+        
+        return roll,pitch,yaw
+            
+    def vehicle_attitude_callback(self, message):
+        with self.state_lock:
+            w = float(message.q[0])
+            x = float(message.q[1])
+            y = float(message.q[2])
+            z = float(message.q[3])
+            roll, pitch, yaw = self._quaternion_to_euler(x,y,z,w)
+            self.state['roll'] = roll
+            self.state['pitch'] = pitch
+            self.state['heading'] = yaw
+    
+    def gps_callback(self, message):
+        with self.state_lock:
+            self.state['latitude'] = float(message.lat) * 1e-7
+            self.state['longitude'] = float(message.lon) * 1e-7
+            self.state['satellites'] = int(message.satellites_used)
+            
     def track_callback(self, message):
         tracks = message.tracks
         track_list = []
