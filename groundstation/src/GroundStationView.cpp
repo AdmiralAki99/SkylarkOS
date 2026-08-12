@@ -84,10 +84,20 @@ GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
 
     connect(telemetryClient_, &TelemetryClient::armingStateChanged, this, [this](bool armed){
         armed_ = armed;
+        topBar_->setArmed(armed);
     });
+
+    connect(telemetryClient_, &TelemetryClient::connectionStateChanged, topBar_, &TopBar::setConnected);
 
     connect(telemetryClient_, &TelemetryClient::tracksChanged, videoWidget_, &GstVideoWidget::setTracks);
 
+    connect(telemetryClient_, &TelemetryClient::batteryChanged, this, [this](double voltage, double remainingFraction){
+        topBar_->setBattery(remainingFraction * 100.0);
+    });
+
+    connect(telemetryClient_, &TelemetryClient::gpsChanged, this, [this](double latitude, double longitude, int satellites){
+        topBar_->setSatellites(satellites);
+    });
 }
 
 GroundStationView::~GroundStationView(){

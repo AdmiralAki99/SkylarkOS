@@ -32,3 +32,31 @@ TopBar::TopBar(QWidget* parent): QWidget(parent){
 
     connect(armButton_, &QPushButton::clicked, this, &TopBar::armToggled);
 }
+
+void TopBar::setLinkQuality(int quality){
+    linkLabel_->setText(QString("%1% LINK").arg(quality));
+}
+
+void TopBar::setSatellites(int satellites){
+    satLabel_->setText(QString("SAT %1").arg(satellites));
+}
+
+void TopBar::setJetsonTemp(int tempC){
+    tempLabel_->setText(QString("%1°C").arg(tempC));
+}
+
+void TopBar::setBattery(double percent){
+    batteryLabel_->setText(QString("%1%").arg(percent, 0, 'f', 0));
+}
+
+void TopBar::setArmed(bool armed){
+    armButton_->setText(armed ? "ARMED" : "DISARMED");
+    armButton_->setStyleSheet(armed
+        ? "background: #1c3a2c; color: #46c88c;"
+        : "background: #2a1c1c; color: #e2685a;");
+}
+
+void TopBar::setConnected(bool connected){
+    linkLabel_->setText(connected ? "LINK CONNECTED" : "LINK LOST");
+    linkLabel_->setStyleSheet(connected ? "color: #46c88c;" : "color: #e2685a;");
+}
