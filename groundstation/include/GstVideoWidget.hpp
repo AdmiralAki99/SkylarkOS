@@ -12,6 +12,8 @@
 #include <gst/app/gstappsink.h>
 #include <string>
 
+#include "TelemetryClient.hpp"
+
 
 class GstVideoWidget: public QWidget{
         Q_OBJECT
@@ -20,6 +22,7 @@ class GstVideoWidget: public QWidget{
         ~GstVideoWidget();
 
         void start(const std::string &host, int port);
+        void setTracks(const QVector<Track> &tracks);
 
         signals:
             void clicked();
@@ -32,6 +35,7 @@ class GstVideoWidget: public QWidget{
         GstElement* pipeline_ = nullptr;
         QImage image_;
         QMutex frame_mutex_;
+        QVector<Track> tracks_;
 
         static GstFlowReturn onNewSample(GstElement* sink, gpointer user_data);
         void handleNewFrame(const QImage& frame);

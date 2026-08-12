@@ -15,6 +15,7 @@
 #include "MapWidget.hpp"
 #include "MissionPanel.hpp"
 #include "WaypointModel.hpp"
+#include "TelemetryClient.hpp"
 #include <QTimer>
 
 class GroundStationView: public QWidget{
@@ -39,6 +40,7 @@ class GroundStationView: public QWidget{
         AttitudeHorizonWidget *attitudeHorizonWidget_ = nullptr;
         DroneOrientationWidget *droneOrientationWidget_ = nullptr;
         FlightTimeStrip *flightTimeStrip_ = nullptr;
+        TelemetryClient *telemetryClient_ = nullptr;
         bool videoEnlarged_ = false;
 
         bool armed_ = false;

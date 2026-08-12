@@ -36,6 +36,8 @@ add_executable(groundstation
     include/MissionPanel.hpp
     src/WaypointModel.cpp
     include/WaypointModel.hpp
+    include/TelemetryClient.hpp
+    src/TelemetryClient.cpp
 )
 
 find_package(PkgConfig REQUIRED)

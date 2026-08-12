@@ -1,6 +1,9 @@
 #include "GroundStationView.hpp"
 
 GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
+
+    telemetryClient_ = new TelemetryClient(this);
+
     waypointModel_ = new WaypointModel(this);
     waypointModel_->addWaypoint(37.7755, -122.4180);
     waypointModel_->addWaypoint(37.7762, -122.4170);
@@ -65,6 +68,26 @@ GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
         positionVideoWidget();
     });
 
+    // Live telemetry wiring
+    connect(telemetryClient_, &TelemetryClient::headingChanged, compassWidget_, &CompassWidget::setHeading);
+    connect(telemetryClient_, &TelemetryClient::headingChanged, telemetryPanel_, &TelemetryPanel::setHeading);
+
+    connect(telemetryClient_, &TelemetryClient::pitchChanged, attitudeHorizonWidget_, &AttitudeHorizonWidget::setPitch);
+    connect(telemetryClient_, &TelemetryClient::rollChanged, attitudeHorizonWidget_, &AttitudeHorizonWidget::setRoll);
+    connect(telemetryClient_, &TelemetryClient::pitchChanged, droneOrientationWidget_, &DroneOrientationWidget::setPitch);
+    connect(telemetryClient_, &TelemetryClient::rollChanged, droneOrientationWidget_, &DroneOrientationWidget::setRoll);
+    connect(telemetryClient_, &TelemetryClient::pitchChanged, telemetryPanel_, &TelemetryPanel::setPitch);
+    connect(telemetryClient_, &TelemetryClient::rollChanged, telemetryPanel_, &TelemetryPanel::setRoll);
+
+    connect(telemetryClient_, &TelemetryClient::altitudeChanged, telemetryPanel_, &TelemetryPanel::setAltitude);
+    connect(telemetryClient_, &TelemetryClient::groundSpeedChanged, telemetryPanel_, &TelemetryPanel::setGroundSpeed);
+
+    connect(telemetryClient_, &TelemetryClient::armingStateChanged, this, [this](bool armed){
+        armed_ = armed;
+    });
+
+    connect(telemetryClient_, &TelemetryClient::tracksChanged, videoWidget_, &GstVideoWidget::setTracks);
+
 }
 
 GroundStationView::~GroundStationView(){
@@ -73,6 +96,9 @@ GroundStationView::~GroundStationView(){
 
 void GroundStationView::start(const std::string &host, int port){
     videoWidget_->start(host, port);
+
+    QUrl telemetryUrl(QString("ws://%1:8765/ws").arg(QString::fromStdString(host)));
+    telemetryClient_->connectTo(telemetryUrl);
 }
 
 void GroundStationView::resizeEvent(QResizeEvent* event){

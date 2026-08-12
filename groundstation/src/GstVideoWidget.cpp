@@ -70,9 +70,25 @@ void GstVideoWidget::paintEvent(QPaintEvent* event){
     QMutexLocker Locker(&frame_mutex_);
     if(!image_.isNull()){
         painter.drawImage(rect(), image_);
+        painter.setPen(QPen(Qt::green, 2));
+        for(const Track &track : tracks_){
+            QRectF box(
+                rect().left() + track.x1 * rect().width(), 
+                rect().top() + track.y1 * rect().height(), 
+                (track.x2 - track.x1) * rect().width(), 
+                (track.y2 - track.y1) * rect().height()
+            );
+            painter.drawRect(box);
+        }
     }
 }
 
 void GstVideoWidget::mousePressEvent(QMouseEvent* event){
     emit clicked();
+}
+
+void GstVideoWidget::setTracks(const QVector<Track> &tracks){
+    QMutexLocker Locker(&frame_mutex_);
+    tracks_ = tracks;
+    update();
 }

@@ -8,4 +8,6 @@ docker run -d \
   -v ~/SkylarkOS/data:/skylark/data \
   -p 8080:8080 \
   -p 8554:8554 \
+  -p 8765:8765 \
+  -p 8766:8766 \
   skylark
