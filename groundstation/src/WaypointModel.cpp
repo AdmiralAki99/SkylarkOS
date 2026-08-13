@@ -32,7 +32,6 @@ QHash<int, QByteArray> WaypointModel::roleNames() const {
 }
 
 QString WaypointModel::nextLabel() const {
-    // Base-26 lettering: A, B, ... Z, AA, AB, ...
     int n = waypoints_.size();
     QString label;
     do {

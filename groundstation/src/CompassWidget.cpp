@@ -29,9 +29,6 @@ void CompassWidget::paintEvent(QPaintEvent *event) {
     painter.setBrush(QColor(10, 14, 17, 217));
     painter.drawEllipse(dialRect);
 
-    // Dial rotates opposite heading so "N" stays pointing at true north;
-    // labels are positioned via trig at the rotated angle but drawn
-    // unrotated so the letters stay upright.
     const double radius = side / 2.0 - 18;
     const QPointF center = dialRect.center();
     auto drawDirLabel = [&](const QString &text, double angleDeg, const QColor &color, bool bold) {
@@ -40,6 +37,7 @@ void CompassWidget::paintEvent(QPaintEvent *event) {
         const QPointF pos = center + QPointF(std::cos(rad) * radius, std::sin(rad) * radius);
 
         QFont font = painter.font();
+        font.setFamily("IBM Plex Mono");
         font.setBold(bold);
         font.setPointSizeF(bold ? 12 : 11);
         painter.setFont(font);
@@ -65,6 +63,7 @@ void CompassWidget::paintEvent(QPaintEvent *event) {
     painter.restore();
 
     QFont headingFont = painter.font();
+    headingFont.setFamily("IBM Plex Mono");
     headingFont.setBold(true);
     headingFont.setPointSizeF(16);
     painter.setFont(headingFont);

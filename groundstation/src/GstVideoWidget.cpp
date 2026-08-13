@@ -1,4 +1,5 @@
 #include "GstVideoWidget.hpp"
+#include <QFontMetricsF>
 
 GstVideoWidget::GstVideoWidget(QWidget* parent): QWidget(parent) {
     
@@ -61,34 +62,97 @@ void GstVideoWidget::handleNewFrame(const QImage& frame){
 }
 
 void GstVideoWidget::paintEvent(QPaintEvent* event){
+    Q_UNUSED(event);
+
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
+
     QPainterPath clipPath;
-    clipPath.addEllipse(rect());
+    if (enlarged_) {
+        clipPath.addRoundedRect(rect(), 16, 16);
+    } else {
+        clipPath.addEllipse(rect());
+    }
     painter.setClipPath(clipPath);
 
-    QMutexLocker Locker(&frame_mutex_);
-    if(!image_.isNull()){
-        painter.drawImage(rect(), image_);
-        painter.setPen(QPen(Qt::green, 2));
-        for(const Track &track : tracks_){
-            QRectF box(
-                rect().left() + track.x1 * rect().width(), 
-                rect().top() + track.y1 * rect().height(), 
-                (track.x2 - track.x1) * rect().width(), 
-                (track.y2 - track.y1) * rect().height()
-            );
-            painter.drawRect(box);
+    {
+        QMutexLocker locker(&frame_mutex_);
+        if(!image_.isNull()){
+            painter.drawImage(rect(), image_);
+            painter.setPen(QPen(Qt::green, 2));
+            for(const Track &track : tracks_){
+                QRectF box(
+                    rect().left() + track.x1 * rect().width(),
+                    rect().top() + track.y1 * rect().height(),
+                    (track.x2 - track.x1) * rect().width(),
+                    (track.y2 - track.y1) * rect().height()
+                );
+                painter.drawRect(box);
+            }
         }
     }
+
+    painter.setClipping(false);
+    QPen borderPen(QColor(enlarged_ ? "#2a333b" : "#1c242a"), 3);
+    painter.setPen(borderPen);
+    painter.setBrush(Qt::NoBrush);
+    if (enlarged_) {
+        painter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 16, 16);
+    } else {
+        painter.drawEllipse(rect().adjusted(1, 1, -1, -1));
+    }
+
+    QFont liveFont = painter.font();
+    liveFont.setFamily("IBM Plex Mono");
+    liveFont.setPointSizeF(8);
+    painter.setFont(liveFont);
+    QFontMetricsF liveMetrics(liveFont);
+    const QString liveText = "LIVE";
+    const double liveTextWidth = liveMetrics.horizontalAdvance(liveText);
+    const double liveBadgeWidth = liveTextWidth + 22;
+    const double liveBadgeHeight = 18;
+    QRectF liveBadgeRect((width() - liveBadgeWidth) / 2.0, 14, liveBadgeWidth, liveBadgeHeight);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(QColor(6, 10, 13, 179));
+    painter.drawRoundedRect(liveBadgeRect, liveBadgeHeight / 2.0, liveBadgeHeight / 2.0);
+    painter.setBrush(QColor("#e2685a"));
+    painter.drawEllipse(QPointF(liveBadgeRect.left() + 12, liveBadgeRect.center().y()), 3, 3);
+    painter.setPen(QColor("#e2685a"));
+    painter.drawText(
+        QRectF(liveBadgeRect.left() + 18, liveBadgeRect.top(), liveTextWidth, liveBadgeHeight),
+        Qt::AlignVCenter | Qt::AlignLeft, liveText
+    );
+
+    QFont hintFont = painter.font();
+    hintFont.setFamily("IBM Plex Mono");
+    hintFont.setPointSizeF(7.5);
+    painter.setFont(hintFont);
+    const QString hintText = enlarged_ ? "CLICK TO SHRINK" : "CLICK TO EXPAND";
+    QFontMetricsF hintMetrics(hintFont);
+    const double hintTextWidth = hintMetrics.horizontalAdvance(hintText);
+    const double hintPadWidth = hintTextWidth + 16;
+    const double hintPadHeight = 18;
+    const double hintBottom = enlarged_ ? 14 : 38;
+    QRectF hintRect((width() - hintPadWidth) / 2.0, height() - hintBottom - hintPadHeight, hintPadWidth, hintPadHeight);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(QColor(6, 10, 13, 179));
+    painter.drawRoundedRect(hintRect, 6, 6);
+    painter.setPen(QColor("#8fa3b0"));
+    painter.drawText(hintRect, Qt::AlignCenter, hintText);
 }
 
 void GstVideoWidget::mousePressEvent(QMouseEvent* event){
+    Q_UNUSED(event);
     emit clicked();
 }
 
 void GstVideoWidget::setTracks(const QVector<Track> &tracks){
     QMutexLocker Locker(&frame_mutex_);
     tracks_ = tracks;
+    update();
+}
+
+void GstVideoWidget::setEnlarged(bool enlarged){
+    enlarged_ = enlarged;
     update();
 }

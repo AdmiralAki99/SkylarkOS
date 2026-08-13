@@ -9,7 +9,7 @@ struct Waypoint {
     QString label;
     double latitude = 0.0;
     double longitude = 0.0;
-    double altitude = 30.0; // meters
+    double altitude = 30.0;
 };
 
 class WaypointModel : public QAbstractListModel {
@@ -28,7 +28,6 @@ public:
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    // Callable from both QML (Q_INVOKABLE) and plain C++.
     Q_INVOKABLE int addWaypoint(double latitude, double longitude);
     Q_INVOKABLE void setCoordinate(int index, double latitude, double longitude);
     Q_INVOKABLE void setAltitude(int index, double altitude);

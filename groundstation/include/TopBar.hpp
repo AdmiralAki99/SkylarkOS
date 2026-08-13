@@ -21,9 +21,11 @@ class TopBar: public QWidget{
         signals:
             void modeSelected(const QString& mode);
             void armToggled();
+            void chartsToggled();
 
     private:
         QPushButton* armButton_ = nullptr;
+        QPushButton* chartsButton_ = nullptr;
         QLabel* linkLabel_ = nullptr;
         QLabel* satLabel_ = nullptr;
         QLabel* tempLabel_ = nullptr;

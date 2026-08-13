@@ -13,7 +13,6 @@ class TelemetryPanel : public QWidget {
 public:
     explicit TelemetryPanel(QWidget *parent = nullptr);
 
-    // Setters for later wiring to the WebSocket telemetry client
     void setAltitude(double meters);
     void setGroundSpeed(double mps);
     void setHeading(double degrees);

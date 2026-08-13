@@ -3,7 +3,7 @@
 
 #include <QWidget>
 #include <QLabel>
-#include <QPushButton>
+#include <QToolButton>
 #include <QVBoxLayout>
 #include <QString>
 
@@ -20,10 +20,12 @@ class LeftRail: public QWidget{
 
     private:
         QVBoxLayout* layout_ = nullptr;
-        QPushButton* takeoffButton_ = nullptr;
-        QPushButton* returnButton_ = nullptr;
-        QPushButton* pauseButton_ = nullptr;
-        QPushButton* armButton_ = nullptr;
+        QToolButton* takeoffButton_ = nullptr;
+        QToolButton* returnButton_ = nullptr;
+        QToolButton* pauseButton_ = nullptr;
+        QToolButton* armButton_ = nullptr;
+
+        static QToolButton* makeRailButton(const QString &glyph, const QString &label, QWidget *parent);
 };
 
 

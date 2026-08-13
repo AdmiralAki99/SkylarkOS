@@ -36,6 +36,7 @@ void DroneOrientationWidget::paintEvent(QPaintEvent *event) {
     painter.drawRoundedRect(panelRect.adjusted(0.5, 0.5, -0.5, -0.5), 12, 12);
 
     QFont captionFont = painter.font();
+    captionFont.setFamily("IBM Plex Mono");
     captionFont.setPointSizeF(7.5);
     painter.setFont(captionFont);
     painter.setPen(QColor("#5f707c"));
@@ -44,8 +45,6 @@ void DroneOrientationWidget::paintEvent(QPaintEvent *event) {
     painter.save();
     painter.translate(panelRect.center());
 
-    // Pitch is faked as a vertical scale (foreshortening) since QPainter
-    // has no real 3D perspective.
     painter.rotate(roll_);
     const double pitchClamped = std::clamp(pitch_ * 2.5, -80.0, 80.0);
     const double pitchScale = std::cos(pitchClamped * M_PI / 180.0);

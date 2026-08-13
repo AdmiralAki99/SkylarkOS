@@ -14,7 +14,6 @@ TelemetryClient::TelemetryClient(QObject *parent): QObject(parent){
     connect(socket_, &QWebSocket::disconnected, this, &TelemetryClient::onDisconnected);
     connect(socket_, &QWebSocket::textMessageReceived, this, &TelemetryClient::onTextMessageReceived);
 
-    // TEMPORARY debug logging — remove once telemetry wiring is confirmed working.
     connect(socket_, &QWebSocket::errorOccurred, this, [](QAbstractSocket::SocketError error){
         qDebug() << "[TelemetryClient] WebSocket error:" << error;
     });

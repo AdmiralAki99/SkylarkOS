@@ -1,8 +1,17 @@
 #include "GroundStationView.hpp"
 
+#include <QDateTime>
+#include <cmath>
+#include <algorithm>
+
 GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
+    setObjectName("groundStationView");
+    setAttribute(Qt::WA_StyledBackground, true);
 
     telemetryClient_ = new TelemetryClient(this);
+
+    chartsPanel_ = new ChartsPanel(this);
+    chartsPanel_->hide();
 
     waypointModel_ = new WaypointModel(this);
     waypointModel_->addWaypoint(37.7755, -122.4180);
@@ -10,6 +19,12 @@ GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
     waypointModel_->addWaypoint(37.7748, -122.4160);
 
     mapWidget_ = new MapWidget(waypointModel_, this);
+
+    videoBackdrop_ = new QWidget(this);
+    videoBackdrop_->setStyleSheet("background: rgba(3,5,7,0.6);");
+    videoBackdrop_->setCursor(Qt::PointingHandCursor);
+    videoBackdrop_->installEventFilter(this);
+    videoBackdrop_->hide();
 
     videoWidget_ = new GstVideoWidget(this);
     topBar_ = new TopBar(this);
@@ -22,6 +37,12 @@ GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
     connect(topBar_, &TopBar::modeSelected, this, [this](const QString &mode){
         qDebug() << "Mode selected:" << mode;
     });
+
+    connect(topBar_, &TopBar::chartsToggled, this, [this]{
+        chartsVisible_ = !chartsVisible_;
+        chartsPanel_->setVisible(chartsVisible_);
+        if (chartsVisible_) chartsPanel_->raise();
+    });
     leftRail_ = new LeftRail(this);
 
     connect(leftRail_, &LeftRail::takeoffClicked, this, [this]{ qDebug() << "Takeoff clicked"; });
@@ -31,6 +52,7 @@ GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
     
     missionPanel_ = new MissionPanel(waypointModel_, this);
     connect(missionPanel_, &MissionPanel::uploadRequested, this, [this]{ qDebug() << "Mission upload requested (no backend yet)"; });
+    connect(missionPanel_, &MissionPanel::collapsedChanged, this, [this]{ positionMissionPanel(); });
 
     telemetryPanel_ = new TelemetryPanel(this);
 
@@ -59,16 +81,17 @@ GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
     connect(flightTimer_, &QTimer::timeout, this, &GroundStationView::tickFlightTime);
     flightTimer_->start(1000);
 
-    leftRail_->setStyleSheet("background: rgba(10,14,17,0.82); border-radius: 12px;");
-    telemetryPanel_->setStyleSheet("background: rgba(10,14,17,0.85); border-radius: 12px;");
-    this->setStyleSheet("background: rgba(10,14,17,0.9);");
-
     connect(videoWidget_, &GstVideoWidget::clicked, this, [this]{
         videoEnlarged_ = !videoEnlarged_;
+        videoWidget_->setEnlarged(videoEnlarged_);
+        videoBackdrop_->setVisible(videoEnlarged_);
+        if (videoEnlarged_) {
+            videoBackdrop_->raise();
+            videoWidget_->raise();
+        }
         positionVideoWidget();
     });
 
-    // Live telemetry wiring
     connect(telemetryClient_, &TelemetryClient::headingChanged, compassWidget_, &CompassWidget::setHeading);
     connect(telemetryClient_, &TelemetryClient::headingChanged, telemetryPanel_, &TelemetryPanel::setHeading);
 
@@ -88,20 +111,42 @@ GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
     });
 
     connect(telemetryClient_, &TelemetryClient::connectionStateChanged, topBar_, &TopBar::setConnected);
+    connect(telemetryClient_, &TelemetryClient::connectionStateChanged, this, [this](bool connected){
+        telemetryConnected_ = connected;
+    });
 
     connect(telemetryClient_, &TelemetryClient::tracksChanged, videoWidget_, &GstVideoWidget::setTracks);
 
     connect(telemetryClient_, &TelemetryClient::batteryChanged, this, [this](double voltage, double remainingFraction){
-        topBar_->setBattery(remainingFraction * 100.0);
+        Q_UNUSED(voltage);
+        lastBatteryPercent_ = remainingFraction * 100.0;
+        topBar_->setBattery(lastBatteryPercent_);
+        chartsPanel_->pushBattery(lastBatteryPercent_);
     });
 
     connect(telemetryClient_, &TelemetryClient::gpsChanged, this, [this](double latitude, double longitude, int satellites){
         topBar_->setSatellites(satellites);
+        mapWidget_->setVehiclePosition(latitude, longitude);
     });
+
+    mockJetsonStatsTimer_ = new QTimer(this);
+    connect(mockJetsonStatsTimer_, &QTimer::timeout, this, &GroundStationView::tickMockJetsonStats);
+    mockJetsonStatsTimer_->start(500);
 }
 
 GroundStationView::~GroundStationView(){
 
+}
+
+bool GroundStationView::eventFilter(QObject *watched, QEvent *event){
+    if (watched == videoBackdrop_ && event->type() == QEvent::MouseButtonPress) {
+        videoEnlarged_ = false;
+        videoWidget_->setEnlarged(false);
+        videoBackdrop_->hide();
+        positionVideoWidget();
+        return true;
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 void GroundStationView::start(const std::string &host, int port){
@@ -113,14 +158,20 @@ void GroundStationView::start(const std::string &host, int port){
 
 void GroundStationView::resizeEvent(QResizeEvent* event){
     mapWidget_->setGeometry(0, 0, width(), height());
+    videoBackdrop_->setGeometry(0, 0, width(), height());
     topBar_->setGeometry(0, 0, width(), 52);
     leftRail_->setGeometry(16, 70, 76, 280);
-    missionPanel_->setGeometry(104, 70, 230, height() - 100);
-    telemetryPanel_->setGeometry(width() - 250 - 16, 70, 250, 220);
+    positionMissionPanel();
+    telemetryPanel_->setGeometry(width() - 250 - 16, 70, 250, 290);
     compassWidget_->setGeometry(width() - 150 - 16, height() - 150 - 16, 150, 150);
     attitudeHorizonWidget_->setGeometry(width() - 150 - 14 - 150 - 16, height() - 150 - 16, 150, 150);
     droneOrientationWidget_->setGeometry(width() - 150 - 14 - 150 - 14 - 150 - 16, height() - 150 - 16, 150, 150);
     flightTimeStrip_->setGeometry((width() - 140) / 2, height() - 66 - 16, 140, 66);
+    {
+        const int chartsWidth = std::min(int(width() * 0.6), 680);
+        const int chartsHeight = std::min(int(height() * 0.82), 720);
+        chartsPanel_->setGeometry((width() - chartsWidth) / 2, (height() - chartsHeight) / 2, chartsWidth, chartsHeight);
+    }
     positionVideoWidget();
 }
 
@@ -137,6 +188,34 @@ void GroundStationView::tickFlightTime(){
         .arg(s, 2, 10, QChar('0'));
     flightTimeStrip_->setTime(formatted);
     telemetryPanel_->setFlightTime(formatted);
+}
+
+void GroundStationView::tickMockJetsonStats(){
+    const double now = QDateTime::currentMSecsSinceEpoch() / 1000.0;
+
+    if (!telemetryConnected_) {
+        const double mockBattery = std::clamp(87.0 - std::fmod(now, 300.0) / 10.0, 20.0, 100.0);
+        chartsPanel_->pushBattery(mockBattery);
+    }
+
+    const double gpuLoad = std::clamp(40.0 + std::sin(now / 3.0) * 20.0 + std::sin(now / 0.7) * 5.0, 0.0, 100.0);
+    chartsPanel_->pushGpu(gpuLoad);
+
+    const double baseTemps[4] = {52.0, 55.0, 58.0, 61.0};
+    double lastCoreTemp = baseTemps[0];
+    for (int core = 0; core < 4; ++core) {
+        lastCoreTemp = baseTemps[core] + std::sin(now / 4.0 + core) * 6.0;
+        chartsPanel_->pushThermalCore(core, lastCoreTemp);
+    }
+
+    telemetryPanel_->setJetsonStats(lastCoreTemp, int(gpuLoad));
+}
+
+void GroundStationView::positionMissionPanel(){
+    const int panelHeight = missionPanel_->isCollapsed()
+        ? missionPanel_->collapsedHeight()
+        : height() - 100;
+    missionPanel_->setGeometry(104, 70, 230, panelHeight);
 }
 
 void GroundStationView::positionVideoWidget(){

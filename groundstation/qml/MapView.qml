@@ -3,9 +3,16 @@ import QtLocation
 import QtPositioning
 
 Item {
+    property bool hasCenteredOnVehicle: false
+
     Plugin {
         id: mapPlugin
         name: "osm"
+        PluginParameter { name: "osm.mapping.providersrepository.disabled"; value: true }
+        PluginParameter { name: "osm.mapping.host"; value: "https://tile.openstreetmap.org/" }
+        PluginParameter { name: "osm.useragent"; value: "SkylarkGroundStation/1.0" }
+        PluginParameter { name: "osm.mapping.custom.host"; value: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/%z/%y/%x" }
+        PluginParameter { name: "osm.mapping.custom.mapcopyright"; value: "Esri, Maxar, Earthstar Geographics" }
     }
 
     Map {
@@ -18,7 +25,7 @@ Item {
         MapCircle {
             id: geofence
             center: QtPositioning.coordinate(37.7749, -122.4194)
-            radius: 200.0 // meters
+            radius: 200.0
             color: Qt.rgba(0.35, 0.66, 1.0, 0.15)
             border.color: "#5aa9ff"
             border.width: 2
@@ -45,9 +52,6 @@ Item {
             }
         }
 
-        // waypointModel.count()/coordinateAt() are invokable methods, not
-        // properties, so bindings that call them don't reliably
-        // re-evaluate — rebuilt imperatively into a plain ListModel instead.
         ListModel {
             id: segmentModel
         }
@@ -67,7 +71,15 @@ Item {
             }
         }
 
-        Component.onCompleted: map.rebuildSegments()
+        Component.onCompleted: {
+            map.rebuildSegments();
+            for (var i = 0; i < map.supportedMapTypes.length; i++) {
+                if (map.supportedMapTypes[i].style === MapType.CustomMap) {
+                    map.activeMapType = map.supportedMapTypes[i];
+                    break;
+                }
+            }
+        }
         Connections {
             target: waypointModel
             function onWaypointsChanged() { map.rebuildSegments(); }
@@ -93,6 +105,7 @@ Item {
                         id: distText
                         anchors.centerIn: parent
                         color: "#e7edf2"
+                        font.family: "IBM Plex Mono"
                         font.pixelSize: 10
                         text: distanceText
                     }
@@ -123,6 +136,7 @@ Item {
                         anchors.centerIn: parent
                         text: wpItem.label
                         color: "white"
+                        font.family: "Space Grotesk"
                         font.pixelSize: 11
                         font.bold: true
                     }
@@ -133,7 +147,6 @@ Item {
                             var scenePos = wpIcon.mapToItem(map, wpIcon.width / 2, wpIcon.height / 2);
                             var coord = map.toCoordinate(scenePos);
                             waypointModel.setCoordinate(wpItem.index, coord.latitude, coord.longitude);
-                            // Model update above re-centers the item itself.
                             wpIcon.x = 0;
                             wpIcon.y = 0;
                         }
@@ -189,7 +202,6 @@ Item {
             }
         }
 
-        // Right-click, not left, since left-drag pans the map.
         MouseArea {
             anchors.fill: parent
             acceptedButtons: Qt.RightButton
@@ -197,6 +209,15 @@ Item {
                 var coord = map.toCoordinate(Qt.point(mouse.x, mouse.y));
                 waypointModel.addWaypoint(coord.latitude, coord.longitude);
             }
+        }
+    }
+
+    function setVehicleCoordinate(lat, lon) {
+        const coord = QtPositioning.coordinate(lat, lon);
+        droneMarker.coordinate = coord;
+        if (!hasCenteredOnVehicle) {
+            map.center = coord;
+            hasCenteredOnVehicle = true;
         }
     }
 }

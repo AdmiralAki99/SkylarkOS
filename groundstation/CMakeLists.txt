@@ -8,7 +8,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets WebSockets Quick QuickWidgets Positioning Location)
+find_package(Qt6 REQUIRED COMPONENTS Widgets WebSockets Quick QuickWidgets Positioning Location Charts)
 
 add_executable(groundstation
     src/main.cpp
@@ -38,6 +38,10 @@ add_executable(groundstation
     include/WaypointModel.hpp
     include/TelemetryClient.hpp
     src/TelemetryClient.cpp
+    src/ChartsPanel.cpp
+    include/ChartsPanel.hpp
+    src/MetricHistory.cpp
+    include/MetricHistory.hpp
 )
 
 find_package(PkgConfig REQUIRED)
@@ -54,6 +58,7 @@ target_link_libraries(groundstation PRIVATE
     Qt6::QuickWidgets
     Qt6::Positioning
     Qt6::Location
+    Qt6::Charts
     PkgConfig::GST
 )
 

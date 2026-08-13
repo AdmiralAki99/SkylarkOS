@@ -23,6 +23,7 @@ class GstVideoWidget: public QWidget{
 
         void start(const std::string &host, int port);
         void setTracks(const QVector<Track> &tracks);
+        void setEnlarged(bool enlarged);
 
         signals:
             void clicked();
@@ -36,6 +37,7 @@ class GstVideoWidget: public QWidget{
         QImage image_;
         QMutex frame_mutex_;
         QVector<Track> tracks_;
+        bool enlarged_ = false;
 
         static GstFlowReturn onNewSample(GstElement* sink, gpointer user_data);
         void handleNewFrame(const QImage& frame);

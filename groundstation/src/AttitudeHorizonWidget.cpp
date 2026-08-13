@@ -39,7 +39,6 @@ void AttitudeHorizonWidget::paintEvent(QPaintEvent *event) {
     painter.translate(gaugeRect.center());
     painter.rotate(-roll_);
 
-    // Oversized so rotation never exposes a corner.
     const double big = side * 2.0;
     const double pitchOffset = pitch_ * 2.2;
     QRectF skyRect(-big, -big + pitchOffset, big * 2, big);

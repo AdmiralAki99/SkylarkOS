@@ -9,6 +9,7 @@ class MapWidget : public QQuickWidget {
     Q_OBJECT
 public:
     explicit MapWidget(WaypointModel *waypointModel, QWidget *parent = nullptr);
+    void setVehiclePosition(double lat, double lon);
 };
 
 #endif // MAP_WIDGET_HPP
