@@ -3,8 +3,10 @@ set -e
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-JETSON_HOST="akhi@10.0.0.46"
-JETSON_DIR="~/SkylarkOS"
+# JETSON_HOST/JETSON_DIR live in scripts/jetson.env (gitignored, personal —
+# not committed) so this script stays generic/shareable while the actual
+# connection details never need to be tracked or synced across branches.
+source scripts/jetson.env
 
 # Mirror the repo layout the Dockerfile expects (ws/src, docker/, scripts/ all
 # under one root) so `docker build` on the Jetson resolves its COPY paths the
@@ -18,7 +20,7 @@ rsync -avz --delete ws/src/    "$JETSON_HOST:$JETSON_DIR/ws/src/"
 # from the local source tree. --exclude belt-and-suspenders in case --delete
 # is ever restored above.
 rsync -avz --exclude 'ort_gpu_files/' docker/  "$JETSON_HOST:$JETSON_DIR/docker/"
-rsync -avz --delete scripts/   "$JETSON_HOST:$JETSON_DIR/scripts/"
+rsync -avz --delete --exclude 'jetson.env' scripts/   "$JETSON_HOST:$JETSON_DIR/scripts/"
 
 ssh "$JETSON_HOST" "cd $JETSON_DIR && \
   docker build -f docker/Dockerfile -t skylark . && \

@@ -93,3 +93,4 @@ docs/dev_roadmap.md
 *.npy
 DEPLOYMENT_NOTES.txt
 output.mp4
+scripts/jetson.env

@@ -11,6 +11,9 @@ import asyncio
 import math
 import json
 import threading
+import shutil
+import re
+import subprocess
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import uvicorn
@@ -48,7 +51,10 @@ class TelemetryNode(Node):
             "roll": 0.0,
             "latitude": 0.0,
             "longitude": 0.0,
-            "satellites": 0
+            "satellites": 0,
+            "cpu_cores": [],
+            "gpu_util": 0,
+            "jetson_temp": 0.0,  
         }
         
         self.get_logger().info('API Node initialized and publisher created for /api/command')
@@ -102,9 +108,14 @@ class TelemetryNode(Node):
             '/fmu/out/vehicle_gps_position',
             self.gps_callback,
             qos
-        )
+        )            
         
         threading.Thread(target=self._run_server, daemon=True).start()
+        self._shutdown_event = threading.Event()
+        if shutil.which("tegrastats") is None:
+            self.get_logger().warn("tegrastats not found — Jetson CPU/GPU stats will stay at defaults.")
+        else:
+            threading.Thread(target=self._run_tegrastats, daemon=True).start()
         
     def odometry_callback(self, message):
         with self.state_lock:
@@ -197,8 +208,46 @@ class TelemetryNode(Node):
     def _run_server(self):
         uvicorn.run(self.app, host='0.0.0.0', port=8765)
         
-def main(args= None):
+    def _run_tegrastats(self):
+        self._tegrastats_process = subprocess.Popen(
+            ['tegrastats', '--interval', '1000'], stdout=subprocess.PIPE, text=True)
+        try:
+            for line in self._tegrastats_process.stdout:
+                if self._shutdown_event.is_set():
+                    break
+
+                per_core_util = [int(v) for v in re.findall(r'(\d+)%@\d+', line)]
+
+                gpu_match = re.search(r'GR3D_FREQ (\d+)%', line)
+                gpu_util = int(gpu_match.group(1)) if gpu_match else None
+
+                temp_match = re.search(r'tj@([\d.]+)C', line)
+                jetson_temp = float(temp_match.group(1)) if temp_match else None
+
+                with self.state_lock:
+                    if per_core_util:
+                        self.state['cpu_cores'] = per_core_util
+                    if gpu_util is not None:
+                        self.state['gpu_util'] = gpu_util
+                    if jetson_temp is not None:
+                        self.state['jetson_temp'] = jetson_temp
+        except Exception:
+            self.get_logger().error("tegrastats reader thread crashed", exc_info=True)
+        finally:
+            self._tegrastats_process.terminate()
+
+    def destroy_node(self):
+        self._shutdown_event.set()
+        process = getattr(self, '_tegrastats_process', None)
+        if process is not None:
+            process.terminate()
+        super().destroy_node()
+
+def main(args=None):
     rclpy.init(args=args)
     node = TelemetryNode()
-    rclpy.spin(node)
-    rclpy.shutdown()
+    try:
+        rclpy.spin(node)
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()

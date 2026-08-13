@@ -1,0 +1,8 @@
+# Force LF line endings for anything that gets executed as a script,
+# regardless of core.autocrlf — CRLF silently breaks bash (embeds a
+# literal \r into paths/hostnames/commands) and has already caused two
+# separate deploy-script failures this project.
+*.sh text eol=lf
+*.py text eol=lf
+Dockerfile text eol=lf
+entrypoint.sh text eol=lf
