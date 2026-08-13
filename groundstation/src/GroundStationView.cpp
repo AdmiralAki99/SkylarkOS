@@ -129,6 +129,23 @@ GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
         mapWidget_->setVehiclePosition(latitude, longitude);
     });
 
+    connect(telemetryClient_, &TelemetryClient::gpuLoadChanged, this, [this](double percent){
+        lastGpuLoad_ = percent;
+        chartsPanel_->pushGpu(percent);
+        telemetryPanel_->setJetsonStats(lastJetsonTemp_, int(lastGpuLoad_));
+    });
+
+    connect(telemetryClient_, &TelemetryClient::jetsonTempChanged, this, [this](double celsius){
+        lastJetsonTemp_ = celsius;
+        telemetryPanel_->setJetsonStats(lastJetsonTemp_, int(lastGpuLoad_));
+    });
+
+    connect(telemetryClient_, &TelemetryClient::coreTempsChanged, this, [this](const QVector<double> &temps){
+        for (int i = 0; i < temps.size(); ++i) {
+            chartsPanel_->pushThermalCore(i, temps[i]);
+        }
+    });
+
     mockJetsonStatsTimer_ = new QTimer(this);
     connect(mockJetsonStatsTimer_, &QTimer::timeout, this, &GroundStationView::tickMockJetsonStats);
     mockJetsonStatsTimer_->start(500);
@@ -193,10 +210,10 @@ void GroundStationView::tickFlightTime(){
 void GroundStationView::tickMockJetsonStats(){
     const double now = QDateTime::currentMSecsSinceEpoch() / 1000.0;
 
-    if (!telemetryConnected_) {
-        const double mockBattery = std::clamp(87.0 - std::fmod(now, 300.0) / 10.0, 20.0, 100.0);
-        chartsPanel_->pushBattery(mockBattery);
-    }
+    if (telemetryConnected_) return;
+
+    const double mockBattery = std::clamp(87.0 - std::fmod(now, 300.0) / 10.0, 20.0, 100.0);
+    chartsPanel_->pushBattery(mockBattery);
 
     const double gpuLoad = std::clamp(40.0 + std::sin(now / 3.0) * 20.0 + std::sin(now / 0.7) * 5.0, 0.0, 100.0);
     chartsPanel_->pushGpu(gpuLoad);

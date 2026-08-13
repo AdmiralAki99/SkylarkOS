@@ -53,6 +53,8 @@ class GroundStationView: public QWidget{
         QTimer *flightTimer_ = nullptr;
         QTimer *mockJetsonStatsTimer_ = nullptr;
         double lastBatteryPercent_ = 87.0;
+        double lastGpuLoad_ = 0.0;
+        double lastJetsonTemp_ = 0.0;
         bool telemetryConnected_ = false;
 
         void positionVideoWidget();

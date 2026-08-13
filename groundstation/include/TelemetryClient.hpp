@@ -36,6 +36,9 @@ class TelemetryClient: public QObject{
             void batteryChanged(double voltage, double remainingFraction);
             void gpsChanged(double lat, double lon, int satellites);
             void tracksChanged(const QVector<Track>&);
+            void gpuLoadChanged(double percent);
+            void jetsonTempChanged(double celsius);
+            void coreTempsChanged(const QVector<double>& celsius);
 
         private:
             void onConnected();

@@ -68,6 +68,14 @@ void TelemetryClient::parseAndEmit(const QByteArray& json){
 
     float groundSpeed = sqrt((velocityX*velocityX + velocityY*velocityY));
 
+    double gpuUtil = jsonObject["gpu_util"].toDouble();
+    double jetsonTemp = jsonObject["jetson_temp"].toDouble();
+
+    QVector<double> coreTemps;
+    for (const QJsonValue &core : jsonObject["cpu_cores"].toArray()) {
+        coreTemps.append(core.toDouble());
+    }
+
     emit armingStateChanged(armingState == 2);
     emit groundSpeedChanged(groundSpeed);
     emit pitchChanged(pitch);
@@ -77,6 +85,9 @@ void TelemetryClient::parseAndEmit(const QByteArray& json){
     emit batteryChanged(batteryVoltage, batteryRemaining);
     emit gpsChanged(latitude,longitude,satellites);
     emit tracksChanged(tracks);
+    emit gpuLoadChanged(gpuUtil);
+    emit jetsonTempChanged(jetsonTemp);
+    emit coreTempsChanged(coreTemps);
 }
 
 void TelemetryClient::onConnected(){
