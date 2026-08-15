@@ -18,6 +18,7 @@
 #include "std_srvs/srv/trigger.hpp"
 #include "std_msgs/msg/int32.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "std_msgs/msg/bool.hpp"
 
 #include "pid_controller.hpp"
 
@@ -142,6 +143,14 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
 
         RCLCPP_INFO(get_logger(), "Creating the API command subscriber.");
 
+        link_status_subscription_ = this->create_subscription<std_msgs::msg::Bool>(
+            "/system/link_status",
+            rclcpp::QoS(1).reliable(),
+            std::bind(&ControlNode::link_status_callback, this, std::placeholders::_1)
+        );
+
+        RCLCPP_INFO(get_logger(), "Creating the Link Status subscriber.");
+
         // Creating the landing service
         landing_service_ = this->create_service<std_srvs::srv::Trigger>(
             "/land",
@@ -155,7 +164,7 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
             std::bind(&ControlNode::takeoff_trigger, this, std::placeholders::_1, std::placeholders::_2)
         );
 
-        RCLCPP_INFO(get_logger(), "Created the takeoff service.");
+        RCLCPP_INFO(get_logger(), "Created the takeoff service.");       
 
         // Creating the PID Controllers
         pid_lateral_ = PIDController(kp_lateral_,kd_lateral_, 0.05f);
@@ -233,6 +242,7 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
     std::string current_api_command_ = "";
 
     bool api_nudge_active_ = false;
+    bool link_ok_ = true;
     rclcpp::Time api_nudge_start_;
     float api_nudge_duration_ = 0.3f;   // seconds a MOVE_* command displaces the drone before falling back to tracking
     float api_nudge_velocity_ = 0.5f;   // fixed velocity magnitude applied during a nudge
@@ -243,6 +253,7 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
     rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr identity_subscription_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr gesture_subscription_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr api_command_subscription_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr link_status_subscription_;
     
     /*
     * OffboardControlMode is a message that tells what is the nature of the information being sent to the PX4
@@ -286,6 +297,10 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
 
     void api_command_callback(const std_msgs::msg::String::SharedPtr message){
         current_api_command_ = message->data;
+    }
+
+    void link_status_callback(const std_msgs::msg::Bool::SharedPtr message){
+        link_ok_ = message->data;
     }
 
     void vehicle_status_callback(const px4_msgs::msg::VehicleStatus::SharedPtr message){
@@ -380,6 +395,16 @@ class ControlNode: public rclcpp_lifecycle::LifecycleNode{
             break;
             case FlightState::FLYING:
                 // This is the most important state and takes care of all the flying operations
+
+                if(!link_ok_){
+                    command_vx_ = 0.0f;
+                    command_vy_ = 0.0f;
+                    api_nudge_active_ = false;
+                    pid_distance_.reset();
+                    pid_lateral_.reset();
+                    RCLCPP_INFO(get_logger(), "Drone lost link connection.");
+                    break;
+                }
 
                 // API commands take precedence over gesture commands.
                 // A nudge in progress holds its velocity for api_nudge_duration_ before
