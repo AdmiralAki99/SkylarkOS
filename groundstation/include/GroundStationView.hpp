@@ -17,6 +17,7 @@
 #include "WaypointModel.hpp"
 #include "TelemetryClient.hpp"
 #include "ChartsPanel.hpp"
+#include "NudgePad.hpp"
 #include <QTimer>
 
 class GroundStationView: public QWidget{
@@ -45,6 +46,7 @@ class GroundStationView: public QWidget{
         FlightTimeStrip *flightTimeStrip_ = nullptr;
         TelemetryClient *telemetryClient_ = nullptr;
         ChartsPanel *chartsPanel_ = nullptr;
+        NudgePad *nudgePad_ = nullptr;
         bool videoEnlarged_ = false;
         bool chartsVisible_ = false;
 

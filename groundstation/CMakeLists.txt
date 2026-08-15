@@ -42,6 +42,8 @@ add_executable(groundstation
     include/ChartsPanel.hpp
     src/MetricHistory.cpp
     include/MetricHistory.hpp
+    src/NudgePad.cpp
+    include/NudgePad.hpp
 )
 
 find_package(PkgConfig REQUIRED)

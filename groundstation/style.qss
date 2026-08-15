@@ -10,7 +10,7 @@
 }
 
 /* ---- Panel chrome (shared by every floating panel) ---- */
-#topBar, #leftRail, #missionPanel, #telemetryPanel, #chartsPanel {
+#topBar, #leftRail, #missionPanel, #telemetryPanel, #chartsPanel, #nudgePad {
     background: rgba(10, 14, 17, 0.92);
     border: 1px solid #1c242a;
     border-radius: 12px;
@@ -104,6 +104,31 @@
 }
 #railButton:hover {
     background: #141a1f;
+}
+
+/* ---- Nudge pad ---- */
+#nudgeButton {
+    font-family: "IBM Plex Mono";
+    font-size: 12px;
+    color: #8fa3b0;
+    background: #0f1418;
+    border: 1px solid #22292f;
+    border-radius: 6px;
+    min-width: 30px;
+    min-height: 30px;
+    max-width: 30px;
+    max-height: 30px;
+}
+#nudgeButton:hover {
+    border-color: #5aa9ff;
+    color: #5aa9ff;
+}
+#nudgeStopButton {
+    color: #e2685a;
+}
+#nudgeStopButton:hover {
+    border-color: #e2685a;
+    color: #e2685a;
 }
 
 /* ---- Mission panel ---- */

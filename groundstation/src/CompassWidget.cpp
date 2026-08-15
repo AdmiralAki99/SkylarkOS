@@ -31,9 +31,20 @@ void CompassWidget::paintEvent(QPaintEvent *event) {
 
     const double radius = side / 2.0 - 18;
     const QPointF center = dialRect.center();
+
+    const double tickOuterR = side / 2.0 - 6;
+    for (int deg = 0; deg < 360; deg += 30) {
+        const bool major = (deg % 90 == 0);
+        const double rad = qDegreesToRadians(deg - 90.0);
+        const double innerR = tickOuterR - (major ? 10 : 6);
+        const QPointF outer = center + QPointF(std::cos(rad) * tickOuterR, std::sin(rad) * tickOuterR);
+        const QPointF inner = center + QPointF(std::cos(rad) * innerR, std::sin(rad) * innerR);
+        painter.setPen(QPen(QColor(major ? "#8fa3b0" : "#5f707c"), major ? 1.5 : 1));
+        painter.drawLine(outer, inner);
+    }
+
     auto drawDirLabel = [&](const QString &text, double angleDeg, const QColor &color, bool bold) {
-        const double effectiveAngle = angleDeg - heading_;
-        const double rad = qDegreesToRadians(effectiveAngle - 90.0);
+        const double rad = qDegreesToRadians(angleDeg - 90.0);
         const QPointF pos = center + QPointF(std::cos(rad) * radius, std::sin(rad) * radius);
 
         QFont font = painter.font();
@@ -54,7 +65,9 @@ void CompassWidget::paintEvent(QPaintEvent *event) {
     drawDirLabel("E", 90, QColor("#8fa3b0"), false);
 
     painter.save();
-    painter.translate(dialRect.center().x(), dialRect.top() + 8);
+    painter.translate(center);
+    painter.rotate(heading_);
+    painter.translate(0, -(tickOuterR + 2));
     QPolygonF arrow;
     arrow << QPointF(-5, 8) << QPointF(5, 8) << QPointF(0, 0);
     painter.setBrush(QColor("#e2685a"));

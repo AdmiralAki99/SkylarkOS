@@ -17,6 +17,18 @@ TelemetryClient::TelemetryClient(QObject *parent): QObject(parent){
     connect(socket_, &QWebSocket::errorOccurred, this, [](QAbstractSocket::SocketError error){
         qDebug() << "[TelemetryClient] WebSocket error:" << error;
     });
+
+    commandSocket_ = new QWebSocket(QString(), QWebSocketProtocol::VersionLatest, this);
+
+    connect(commandSocket_, &QWebSocket::connected, this, &TelemetryClient::onCommandConnected);
+    connect(commandSocket_, &QWebSocket::disconnected, this, &TelemetryClient::onCommandDisconnected);
+
+    connect(commandSocket_, &QWebSocket::errorOccurred, this, [](QAbstractSocket::SocketError error){
+        qDebug() << "[TelemetryClient] Command WebSocket error:" << error;
+    });
+
+    heartbeatTimer_ = new QTimer(this);
+    connect(heartbeatTimer_, &QTimer::timeout, this, &TelemetryClient::sendHeartbeat);
 }
 
 TelemetryClient::~TelemetryClient(){
@@ -110,8 +122,29 @@ void TelemetryClient::connectTo(const QUrl& url){
     socket_->open(url);
 }
 
+void TelemetryClient::connectCommand(const QUrl& url){
+    qDebug() << "[TelemetryClient] connecting command channel to" << url;
+    commandSocket_->open(url);
+}
+
+void TelemetryClient::onCommandConnected(){
+    qDebug() << "[TelemetryClient] command channel connected";
+    sendHeartbeat();
+    heartbeatTimer_->start(1000);
+}
+
+void TelemetryClient::onCommandDisconnected(){
+    qDebug() << "[TelemetryClient] command channel disconnected";
+    heartbeatTimer_->stop();
+}
+
+void TelemetryClient::sendHeartbeat(){
+    sendCommand("heartbeat");
+}
+
 void TelemetryClient::sendCommand(const QString& cmd){
+    if (commandSocket_->state() != QAbstractSocket::ConnectedState) return;
     QJsonObject jsonObject{{"cmd", cmd}};
     QByteArray jsonBytes = QJsonDocument(jsonObject).toJson(QJsonDocument::Compact);
-    socket_->sendTextMessage(QString::fromUtf8(jsonBytes));
+    commandSocket_->sendTextMessage(QString::fromUtf8(jsonBytes));
 }

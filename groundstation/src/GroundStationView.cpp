@@ -49,10 +49,18 @@ GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
     connect(leftRail_, &LeftRail::returnClicked, this, [this]{ qDebug() << "Return/RTL clicked"; });
     connect(leftRail_, &LeftRail::pauseClicked, this, [this]{ qDebug() << "Pause clicked"; });
     connect(leftRail_, &LeftRail::armClicked, this, [this]{ qDebug() << "Arm clicked"; });
-    
+
+    nudgePad_ = new NudgePad(this);
+    connect(nudgePad_, &NudgePad::forwardClicked, this, [this]{ telemetryClient_->sendCommand("MOVE_FORWARD"); });
+    connect(nudgePad_, &NudgePad::backwardClicked, this, [this]{ telemetryClient_->sendCommand("MOVE_BACKWARD"); });
+    connect(nudgePad_, &NudgePad::leftClicked, this, [this]{ telemetryClient_->sendCommand("MOVE_LEFT"); });
+    connect(nudgePad_, &NudgePad::rightClicked, this, [this]{ telemetryClient_->sendCommand("MOVE_RIGHT"); });
+    connect(nudgePad_, &NudgePad::stopClicked, this, [this]{ telemetryClient_->sendCommand("STOP"); });
+
     missionPanel_ = new MissionPanel(waypointModel_, this);
     connect(missionPanel_, &MissionPanel::uploadRequested, this, [this]{ qDebug() << "Mission upload requested (no backend yet)"; });
     connect(missionPanel_, &MissionPanel::collapsedChanged, this, [this]{ positionMissionPanel(); });
+    connect(missionPanel_, &MissionPanel::contentChanged, this, [this]{ positionMissionPanel(); });
 
     telemetryPanel_ = new TelemetryPanel(this);
 
@@ -70,6 +78,7 @@ GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
     attitudeHorizonWidget_ = new AttitudeHorizonWidget(this);
     attitudeHorizonWidget_->setPitch(-4.0);
     attitudeHorizonWidget_->setRoll(8.0);
+    attitudeHorizonWidget_->setAltitude(42.3);
 
     droneOrientationWidget_ = new DroneOrientationWidget(this);
     droneOrientationWidget_->setPitch(-4.0);
@@ -103,6 +112,7 @@ GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
     connect(telemetryClient_, &TelemetryClient::rollChanged, telemetryPanel_, &TelemetryPanel::setRoll);
 
     connect(telemetryClient_, &TelemetryClient::altitudeChanged, telemetryPanel_, &TelemetryPanel::setAltitude);
+    connect(telemetryClient_, &TelemetryClient::altitudeChanged, attitudeHorizonWidget_, &AttitudeHorizonWidget::setAltitude);
     connect(telemetryClient_, &TelemetryClient::groundSpeedChanged, telemetryPanel_, &TelemetryPanel::setGroundSpeed);
 
     connect(telemetryClient_, &TelemetryClient::armingStateChanged, this, [this](bool armed){
@@ -171,6 +181,9 @@ void GroundStationView::start(const std::string &host, int port){
 
     QUrl telemetryUrl(QString("ws://%1:8765/ws").arg(QString::fromStdString(host)));
     telemetryClient_->connectTo(telemetryUrl);
+
+    QUrl commandUrl(QString("ws://%1:8766/ws").arg(QString::fromStdString(host)));
+    telemetryClient_->connectCommand(commandUrl);
 }
 
 void GroundStationView::resizeEvent(QResizeEvent* event){
@@ -178,11 +191,12 @@ void GroundStationView::resizeEvent(QResizeEvent* event){
     videoBackdrop_->setGeometry(0, 0, width(), height());
     topBar_->setGeometry(0, 0, width(), 52);
     leftRail_->setGeometry(16, 70, 76, 280);
+    nudgePad_->setGeometry(16, 70 + 280 + 16, 108, 108);
     positionMissionPanel();
     telemetryPanel_->setGeometry(width() - 250 - 16, 70, 250, 290);
     compassWidget_->setGeometry(width() - 150 - 16, height() - 150 - 16, 150, 150);
-    attitudeHorizonWidget_->setGeometry(width() - 150 - 14 - 150 - 16, height() - 150 - 16, 150, 150);
-    droneOrientationWidget_->setGeometry(width() - 150 - 14 - 150 - 14 - 150 - 16, height() - 150 - 16, 150, 150);
+    attitudeHorizonWidget_->setGeometry(width() - 150 - 14 - 260 - 16, height() - 150 - 16, 260, 150);
+    droneOrientationWidget_->setGeometry(width() - 150 - 14 - 260 - 14 - 150 - 16, height() - 150 - 16, 150, 150);
     flightTimeStrip_->setGeometry((width() - 140) / 2, height() - 66 - 16, 140, 66);
     {
         const int chartsWidth = std::min(int(width() * 0.6), 680);
@@ -214,24 +228,12 @@ void GroundStationView::tickMockJetsonStats(){
 
     const double mockBattery = std::clamp(87.0 - std::fmod(now, 300.0) / 10.0, 20.0, 100.0);
     chartsPanel_->pushBattery(mockBattery);
-
-    const double gpuLoad = std::clamp(40.0 + std::sin(now / 3.0) * 20.0 + std::sin(now / 0.7) * 5.0, 0.0, 100.0);
-    chartsPanel_->pushGpu(gpuLoad);
-
-    const double baseTemps[4] = {52.0, 55.0, 58.0, 61.0};
-    double lastCoreTemp = baseTemps[0];
-    for (int core = 0; core < 4; ++core) {
-        lastCoreTemp = baseTemps[core] + std::sin(now / 4.0 + core) * 6.0;
-        chartsPanel_->pushThermalCore(core, lastCoreTemp);
-    }
-
-    telemetryPanel_->setJetsonStats(lastCoreTemp, int(gpuLoad));
 }
 
 void GroundStationView::positionMissionPanel(){
     const int panelHeight = missionPanel_->isCollapsed()
         ? missionPanel_->collapsedHeight()
-        : height() - 100;
+        : std::min(missionPanel_->contentHeight(), height() - 100);
     missionPanel_->setGeometry(104, 70, 230, panelHeight);
 }
 

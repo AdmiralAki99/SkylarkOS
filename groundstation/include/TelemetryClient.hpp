@@ -4,6 +4,7 @@
 #include <QVector>
 #include <QUrl>
 #include <QObject>
+#include <QTimer>
 
 class QWebSocket;
 
@@ -23,6 +24,7 @@ class TelemetryClient: public QObject{
         ~TelemetryClient();
 
         void connectTo(const QUrl& url);
+        void connectCommand(const QUrl& url);
         void sendCommand(const QString& cmd);
 
         signals:
@@ -45,7 +47,13 @@ class TelemetryClient: public QObject{
             void onDisconnected();
             void onTextMessageReceived(const QString& message);
             void parseAndEmit(const QByteArray& json);
+            void onCommandConnected();
+            void onCommandDisconnected();
+            void sendHeartbeat();
+
             QWebSocket *socket_ = nullptr;
+            QWebSocket *commandSocket_ = nullptr;
+            QTimer *heartbeatTimer_ = nullptr;
 
 };
 

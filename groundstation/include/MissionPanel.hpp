@@ -18,10 +18,12 @@ public:
 
     bool isCollapsed() const { return collapsed_; }
     int collapsedHeight() const;
+    int contentHeight() const;
 
 signals:
     void uploadRequested();
     void collapsedChanged(bool collapsed);
+    void contentChanged();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;

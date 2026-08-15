@@ -10,6 +10,7 @@ public:
 
     void setPitch(double degrees);
     void setRoll(double degrees);
+    void setAltitude(double meters);
     QSize sizeHint() const override;
 
 protected:
@@ -18,6 +19,9 @@ protected:
 private:
     double pitch_ = 0.0;
     double roll_ = 0.0;
+    double altitude_ = 0.0;
+
+    void drawAltitudeTape(QPainter &painter, const QRectF &tapeRect);
 };
 
 #endif // ATTITUDE_HORIZON_WIDGET_HPP

@@ -77,6 +77,10 @@ int MissionPanel::collapsedHeight() const {
     return headerRow_->sizeHint().height();
 }
 
+int MissionPanel::contentHeight() const {
+    return layout_->sizeHint().height();
+}
+
 void MissionPanel::rebuildRows() {
     headerLabel_->setText(QString("MISSION · %1 WP").arg(waypointModel_->count()));
 
@@ -123,4 +127,6 @@ void MissionPanel::rebuildRows() {
 
         listLayout_->addWidget(row);
     }
+
+    emit contentChanged();
 }
