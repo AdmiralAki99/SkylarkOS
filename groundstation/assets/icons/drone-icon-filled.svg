@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600">
+  <g fill="#000000">
+    <path d="M172 172 L228 205 L242 240 L200 232 Z"></path>
+    <path d="M428 172 L372 205 L358 240 L400 232 Z"></path>
+    <path d="M172 428 L228 395 L242 360 L200 368 Z"></path>
+    <path d="M428 428 L372 395 L358 360 L400 368 Z"></path>
+
+    <rect x="70" y="164" width="204" height="16" rx="8" transform="rotate(-27 172 172)"></rect>
+    <rect x="326" y="164" width="204" height="16" rx="8" transform="rotate(27 428 172)"></rect>
+    <rect x="70" y="420" width="204" height="16" rx="8" transform="rotate(27 172 428)"></rect>
+    <rect x="326" y="420" width="204" height="16" rx="8" transform="rotate(-27 428 428)"></rect>
+
+    <circle cx="172" cy="172" r="30"></circle>
+    <circle cx="428" cy="172" r="30"></circle>
+    <circle cx="172" cy="428" r="30"></circle>
+    <circle cx="428" cy="428" r="30"></circle>
+  </g>
+
+  <g fill="#ffffff">
+    <circle cx="172" cy="172" r="12"></circle>
+    <circle cx="428" cy="172" r="12"></circle>
+    <circle cx="172" cy="428" r="12"></circle>
+    <circle cx="428" cy="428" r="12"></circle>
+  </g>
+
+  <rect x="228" y="205" width="144" height="190" rx="40" fill="#000000"></rect>
+  <circle cx="255" cy="205" r="20" fill="#000000"></circle>
+  <circle cx="300" cy="200" r="22" fill="#000000"></circle>
+  <circle cx="345" cy="205" r="20" fill="#000000"></circle>
+</svg>

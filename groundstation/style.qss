@@ -1,0 +1,278 @@
+/* Design tokens (from Ground Station.dc.html):
+   panel surface: rgba(10,14,17,.85), border #1c242a, radius 12px
+   text: primary #e7edf2, secondary #8fa3b0, muted #5f707c
+   accent: #5aa9ff / #1a4f8f, success #46c88c, warning #ffb020, danger #e2685a
+   display font: Space Grotesk, mono font: IBM Plex Mono
+*/
+
+#groundStationView {
+    background: #05070a;
+    border: 1px solid #2a333b;
+    border-radius: 12px;
+}
+
+/* ---- Panel chrome (shared by every floating panel) ---- */
+#topBar, #leftRail, #missionPanel, #telemetryPanel, #chartsPanel, #nudgePad {
+    background: rgba(10, 14, 17, 0.92);
+    border: 1px solid #1c242a;
+    border-radius: 12px;
+}
+#topBar {
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+}
+
+/* ---- Chart cards (one shade lighter than the panel behind them) ---- */
+#chartCard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid #1c242a;
+    border-radius: 8px;
+}
+
+/* ---- Panel header labels ---- */
+#panelHeader {
+    font-family: "IBM Plex Mono";
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: #8fa3b0;
+}
+
+/* ---- Top bar ---- */
+#appTitle {
+    font-family: "Space Grotesk";
+    font-weight: 700;
+    font-size: 15px;
+    color: #e7edf2;
+}
+#monoReadout {
+    font-family: "IBM Plex Mono";
+    font-size: 12px;
+    color: #8fa3b0;
+}
+#batteryReadout {
+    font-family: "IBM Plex Mono";
+    font-size: 13px;
+    font-weight: 600;
+    color: #e7edf2;
+}
+#modeButton {
+    font-family: "Space Grotesk";
+    font-weight: 600;
+    font-size: 12px;
+    color: #8fa3b0;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 14px;
+}
+#modeButton:hover {
+    background: #1c242a;
+    color: #e7edf2;
+}
+#armButton {
+    font-family: "IBM Plex Mono";
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: none;
+    background: #2a1c1c;
+    color: #e2685a;
+}
+#armButton[armed="true"] {
+    background: #1c3a2c;
+    color: #46c88c;
+}
+#monoReadout[connected="false"] {
+    color: #e2685a;
+}
+#monoReadout[connected="true"] {
+    color: #46c88c;
+}
+
+#winControlButton {
+    font-family: "IBM Plex Mono";
+    font-size: 13px;
+    color: #8fa3b0;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 10px;
+    margin-left: 2px;
+}
+#winControlButton:hover {
+    background: #1c242a;
+    color: #e7edf2;
+}
+#winCloseButton {
+    font-family: "IBM Plex Mono";
+    font-size: 14px;
+    color: #8fa3b0;
+    background: transparent;
+    border: none;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: 6px;
+    padding: 5px 10px;
+    margin-left: 2px;
+}
+#winCloseButton:hover {
+    background: #e2685a;
+    color: white;
+}
+
+/* ---- Left rail ---- */
+#railButton {
+    font-family: "IBM Plex Mono";
+    font-size: 9.5px;
+    letter-spacing: 0.5px;
+    color: #8fa3b0;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #1c242a;
+    padding: 14px 0 10px;
+}
+#railButton:hover {
+    background: #141a1f;
+}
+
+/* ---- Nudge pad ---- */
+#nudgeButton {
+    font-family: "IBM Plex Mono";
+    font-size: 12px;
+    color: #8fa3b0;
+    background: #0f1418;
+    border: 1px solid #22292f;
+    border-radius: 6px;
+    min-width: 30px;
+    min-height: 30px;
+    max-width: 30px;
+    max-height: 30px;
+}
+#nudgeButton:hover {
+    border-color: #5aa9ff;
+    color: #5aa9ff;
+}
+#nudgeStopButton {
+    color: #e2685a;
+}
+#nudgeStopButton:hover {
+    border-color: #e2685a;
+    color: #e2685a;
+}
+
+/* ---- Mission panel ---- */
+#addWaypointButton {
+    font-family: "IBM Plex Mono";
+    color: #8fa3b0;
+    background: transparent;
+    border: 1px dashed #2a333b;
+    border-radius: 8px;
+    padding: 9px 0;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    margin: 6px;
+}
+#addWaypointButton:hover {
+    border-color: #5aa9ff;
+    color: #5aa9ff;
+}
+#uploadButton {
+    font-family: "IBM Plex Mono";
+    background: #1a4f8f;
+    color: white;
+    border: none;
+    border-radius: 7px;
+    padding: 9px 0;
+    font-size: 11.5px;
+    font-weight: 600;
+    margin: 10px 14px;
+}
+#uploadButton:hover {
+    background: #245fa8;
+}
+#waypointBadge {
+    font-family: "Space Grotesk";
+    background: #1a4f8f;
+    border: 1px solid #5aa9ff;
+    border-radius: 11px;
+    color: white;
+    font-weight: 600;
+    font-size: 10.5px;
+}
+#altitudeField {
+    font-family: "IBM Plex Mono";
+    background: #0f1418;
+    border: 1px solid #22292f;
+    border-radius: 4px;
+    color: #e7edf2;
+    font-size: 11px;
+    padding: 3px 4px;
+}
+#altitudeUnitLabel {
+    font-family: "IBM Plex Mono";
+    color: #5f707c;
+    font-size: 10px;
+}
+#removeWaypointButton {
+    color: #5f707c;
+    font-size: 14px;
+    border: none;
+    background: transparent;
+}
+#removeWaypointButton:hover {
+    color: #e2685a;
+}
+
+/* ---- Telemetry panel ---- */
+#fieldCaption {
+    font-family: "IBM Plex Mono";
+    font-size: 10px;
+    color: #5f707c;
+}
+#fieldValue {
+    font-family: "IBM Plex Mono";
+    font-size: 19px;
+    font-weight: 600;
+    color: #e7edf2;
+}
+#telemetryDivider {
+    background: #1c242a;
+    max-height: 1px;
+    border: none;
+}
+#jetsonCaption {
+    font-family: "IBM Plex Mono";
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #8fa3b0;
+}
+#jetsonValue {
+    font-family: "IBM Plex Mono";
+    font-size: 12px;
+    color: #8fa3b0;
+}
+
+/* ---- Flight time strip ---- */
+#flightTimeStrip {
+    background: rgba(10, 14, 17, 0.85);
+    border: 1px solid #1c242a;
+    border-radius: 10px;
+}
+#flightTimeCaption {
+    font-family: "IBM Plex Mono";
+    color: #5f707c;
+    font-size: 9.5px;
+    letter-spacing: 1px;
+}
+#flightTimeValue {
+    font-family: "IBM Plex Mono";
+    color: #e7edf2;
+    font-size: 20px;
+    font-weight: 600;
+}

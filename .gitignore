@@ -48,6 +48,9 @@ ws/src/build/
 ws/src/install/
 ws/src/log/
 
+# Ground station Qt build output
+groundstation/build/
+
 # ONNX model files (large binaries — store separately)
 *.onnx
 models/
