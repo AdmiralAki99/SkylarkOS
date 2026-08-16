@@ -4,13 +4,16 @@
 #include <QQmlContext>
 #include <QQuickItem>
 #include <QDebug>
+#include <QDir>
+#include <QCoreApplication>
 
 MapWidget::MapWidget(WaypointModel *waypointModel, QWidget *parent) : QQuickWidget(parent) {
     setResizeMode(QQuickWidget::SizeRootObjectToView);
 
     rootContext()->setContextProperty("waypointModel", waypointModel);
 
-    setSource(QUrl::fromLocalFile(QStringLiteral("../qml/MapView.qml")));
+    const QString resourceRoot = QDir(QCoreApplication::applicationDirPath()).filePath("..");
+    setSource(QUrl::fromLocalFile(resourceRoot + "/qml/MapView.qml"));
 
     qDebug() << "[MapWidget] status after setSource:" << status() << "rootObject:" << rootObject();
 }
