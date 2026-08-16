@@ -16,7 +16,7 @@ int main(int argc, char *argv[]){
 
     app.setFont(QFont("Space Grotesk", 10));
 
-    QFile styleFile("../style.qss");
+    QFile styleFile("../qss/style.qss");
     if (styleFile.open(QFile::ReadOnly | QFile::Text)) {
         app.setStyleSheet(QString::fromUtf8(styleFile.readAll()));
     }

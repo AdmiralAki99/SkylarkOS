@@ -12,38 +12,45 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets WebSockets Quick QuickWidgets Posit
 
 add_executable(groundstation
     src/main.cpp
-    src/GstVideoWidget.cpp
-    include/GstVideoWidget.hpp
-    src/GroundStationView.cpp
-    include/GroundStationView.hpp
-    src/TopBar.cpp
-    include/TopBar.hpp
-    src/LeftRail.cpp
-    include/LeftRail.hpp
-    src/TelemetryPanel.cpp
-    include/TelemetryPanel.hpp
-    src/CompassWidget.cpp
-    include/CompassWidget.hpp
-    src/AttitudeHorizonWidget.cpp
-    include/AttitudeHorizonWidget.hpp
-    src/DroneOrientationWidget.cpp
-    include/DroneOrientationWidget.hpp
-    src/FlightTimeStrip.cpp
-    include/FlightTimeStrip.hpp
-    src/MapWidget.cpp
-    include/MapWidget.hpp
-    src/MissionPanel.cpp
-    include/MissionPanel.hpp
-    src/WaypointModel.cpp
-    include/WaypointModel.hpp
-    include/TelemetryClient.hpp
-    src/TelemetryClient.cpp
-    src/ChartsPanel.cpp
-    include/ChartsPanel.hpp
-    src/MetricHistory.cpp
-    include/MetricHistory.hpp
-    src/NudgePad.cpp
-    include/NudgePad.hpp
+
+    src/core/GroundStationView.cpp
+    src/core/GroundStationView.hpp
+    src/core/TelemetryClient.cpp
+    src/core/TelemetryClient.hpp
+
+    src/widgets/video/GstVideoWidget.cpp
+    src/widgets/video/GstVideoWidget.hpp
+
+    src/widgets/telemetry/TelemetryPanel.cpp
+    src/widgets/telemetry/TelemetryPanel.hpp
+    src/widgets/telemetry/CompassWidget.cpp
+    src/widgets/telemetry/CompassWidget.hpp
+    src/widgets/telemetry/AttitudeHorizonWidget.cpp
+    src/widgets/telemetry/AttitudeHorizonWidget.hpp
+
+    src/widgets/charts/ChartsPanel.cpp
+    src/widgets/charts/ChartsPanel.hpp
+    src/widgets/charts/MetricHistory.cpp
+    src/widgets/charts/MetricHistory.hpp
+
+    src/widgets/mission/MissionPanel.cpp
+    src/widgets/mission/MissionPanel.hpp
+    src/widgets/mission/WaypointModel.cpp
+    src/widgets/mission/WaypointModel.hpp
+
+    src/widgets/map/MapWidget.cpp
+    src/widgets/map/MapWidget.hpp
+
+    src/widgets/controls/TopBar.cpp
+    src/widgets/controls/TopBar.hpp
+    src/widgets/controls/LeftRail.cpp
+    src/widgets/controls/LeftRail.hpp
+    src/widgets/controls/FlightTimeStrip.cpp
+    src/widgets/controls/FlightTimeStrip.hpp
+    src/widgets/controls/DroneOrientationWidget.cpp
+    src/widgets/controls/DroneOrientationWidget.hpp
+    src/widgets/controls/NudgePad.cpp
+    src/widgets/controls/NudgePad.hpp
 )
 
 find_package(PkgConfig REQUIRED)
@@ -66,5 +73,11 @@ target_link_libraries(groundstation PRIVATE
 )
 
 target_include_directories(groundstation PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/video
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/telemetry
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/charts
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/mission
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/map
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/controls
 )
