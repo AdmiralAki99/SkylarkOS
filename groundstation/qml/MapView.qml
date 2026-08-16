@@ -22,6 +22,14 @@ Item {
         center: QtPositioning.coordinate(37.7749, -122.4194)
         zoomLevel: 15
 
+        WheelHandler {
+            target: null
+            onWheel: (event) => {
+                const step = event.angleDelta.y > 0 ? 0.5 : -0.5;
+                map.zoomLevel = Math.max(map.minimumZoomLevel, Math.min(map.maximumZoomLevel, map.zoomLevel + step));
+            }
+        }
+
         MapCircle {
             id: geofence
             center: QtPositioning.coordinate(37.7749, -122.4194)
@@ -29,6 +37,35 @@ Item {
             color: Qt.rgba(0.35, 0.66, 1.0, 0.15)
             border.color: "#5aa9ff"
             border.width: 2
+        }
+
+        MapQuickItem {
+            id: geofenceHandle
+            coordinate: geofence.center.atDistanceAndAzimuth(geofence.radius, 90)
+            anchorPoint.x: handleIcon.width / 2
+            anchorPoint.y: handleIcon.height / 2
+            sourceItem: Rectangle {
+                id: handleIcon
+                width: 16
+                height: 16
+                radius: 8
+                color: "#5aa9ff"
+                border.color: "#ffffff"
+                border.width: 2
+                MouseArea {
+                    anchors.fill: parent
+                    drag.target: parent
+                    onPositionChanged: {
+                        if (!drag.active) return;
+                        var scenePos = handleIcon.mapToItem(map, handleIcon.width / 2, handleIcon.height / 2);
+                        var coord = map.toCoordinate(scenePos);
+                        var newRadius = geofence.center.distanceTo(coord);
+                        if (newRadius > 10) geofence.radius = newRadius;
+                        handleIcon.x = 0;
+                        handleIcon.y = 0;
+                    }
+                }
+            }
         }
 
         MapPolyline {
@@ -208,6 +245,59 @@ Item {
             onClicked: (mouse) => {
                 var coord = map.toCoordinate(Qt.point(mouse.x, mouse.y));
                 waypointModel.addWaypoint(coord.latitude, coord.longitude);
+            }
+        }
+
+        Column {
+            anchors.right: parent.right
+            anchors.rightMargin: 16
+            anchors.top: parent.top
+            anchors.topMargin: 376
+            spacing: 6
+            z: 10
+
+            Rectangle {
+                width: 32
+                height: 32
+                radius: 8
+                color: "#0a0e11"
+                opacity: 0.9
+                border.color: "#1c242a"
+                border.width: 1
+                Text {
+                    anchors.centerIn: parent
+                    text: "+"
+                    color: "#e7edf2"
+                    font.family: "Space Grotesk"
+                    font.pixelSize: 18
+                    font.bold: true
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: map.zoomLevel = Math.min(map.maximumZoomLevel, map.zoomLevel + 1)
+                }
+            }
+
+            Rectangle {
+                width: 32
+                height: 32
+                radius: 8
+                color: "#0a0e11"
+                opacity: 0.9
+                border.color: "#1c242a"
+                border.width: 1
+                Text {
+                    anchors.centerIn: parent
+                    text: "−"
+                    color: "#e7edf2"
+                    font.family: "Space Grotesk"
+                    font.pixelSize: 18
+                    font.bold: true
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: map.zoomLevel = Math.max(map.minimumZoomLevel, map.zoomLevel - 1)
+                }
             }
         }
     }

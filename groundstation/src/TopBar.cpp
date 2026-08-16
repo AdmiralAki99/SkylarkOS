@@ -1,5 +1,7 @@
 #include "TopBar.hpp"
 #include <QStyle>
+#include <QMouseEvent>
+#include <QWindow>
 
 TopBar::TopBar(QWidget* parent): QWidget(parent){
     setObjectName("topBar");
@@ -50,6 +52,47 @@ TopBar::TopBar(QWidget* parent): QWidget(parent){
     layout_->addWidget(armButton_);
 
     connect(armButton_, &QPushButton::clicked, this, &TopBar::armToggled);
+
+    minimizeButton_ = new QPushButton(QChar(0x2212), this);
+    minimizeButton_->setObjectName("winControlButton");
+    connect(minimizeButton_, &QPushButton::clicked, this, [this]{ window()->showMinimized(); });
+    layout_->addWidget(minimizeButton_);
+
+    maximizeButton_ = new QPushButton(QChar(0x25A1), this);
+    maximizeButton_->setObjectName("winControlButton");
+    connect(maximizeButton_, &QPushButton::clicked, this, &TopBar::toggleMaximized);
+    layout_->addWidget(maximizeButton_);
+
+    closeButton_ = new QPushButton(QChar(0x00D7), this);
+    closeButton_->setObjectName("winCloseButton");
+    connect(closeButton_, &QPushButton::clicked, this, [this]{ window()->close(); });
+    layout_->addWidget(closeButton_);
+}
+
+void TopBar::toggleMaximized(){
+    if (window()->isMaximized()) {
+        window()->showNormal();
+    } else {
+        window()->showMaximized();
+    }
+}
+
+void TopBar::mousePressEvent(QMouseEvent *event){
+    if (event->button() == Qt::LeftButton && window()->windowHandle()) {
+        window()->windowHandle()->startSystemMove();
+        event->accept();
+        return;
+    }
+    QWidget::mousePressEvent(event);
+}
+
+void TopBar::mouseDoubleClickEvent(QMouseEvent *event){
+    if (event->button() == Qt::LeftButton) {
+        toggleMaximized();
+        event->accept();
+        return;
+    }
+    QWidget::mouseDoubleClickEvent(event);
 }
 
 void TopBar::setLinkQuality(int quality){

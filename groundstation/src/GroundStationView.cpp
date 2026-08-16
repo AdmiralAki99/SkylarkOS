@@ -1,8 +1,12 @@
 #include "GroundStationView.hpp"
 
 #include <QDateTime>
+#include <QMouseEvent>
+#include <QWindow>
 #include <cmath>
 #include <algorithm>
+
+static const int kResizeMargin = 6;
 
 GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
     setObjectName("groundStationView");
@@ -159,6 +163,8 @@ GroundStationView::GroundStationView(QWidget* parent): QWidget(parent) {
     mockJetsonStatsTimer_ = new QTimer(this);
     connect(mockJetsonStatsTimer_, &QTimer::timeout, this, &GroundStationView::tickMockJetsonStats);
     mockJetsonStatsTimer_->start(500);
+
+    setMouseTracking(true);
 }
 
 GroundStationView::~GroundStationView(){
@@ -174,6 +180,43 @@ bool GroundStationView::eventFilter(QObject *watched, QEvent *event){
         return true;
     }
     return QWidget::eventFilter(watched, event);
+}
+
+Qt::Edges GroundStationView::edgesAt(const QPoint &pos) const {
+    Qt::Edges edges;
+    if (pos.x() <= kResizeMargin) edges |= Qt::LeftEdge;
+    if (pos.x() >= width() - kResizeMargin) edges |= Qt::RightEdge;
+    if (pos.y() <= kResizeMargin) edges |= Qt::TopEdge;
+    if (pos.y() >= height() - kResizeMargin) edges |= Qt::BottomEdge;
+    return edges;
+}
+
+void GroundStationView::mousePressEvent(QMouseEvent *event){
+    if (event->button() == Qt::LeftButton) {
+        const Qt::Edges edges = edgesAt(event->pos());
+        if (edges && window()->windowHandle()) {
+            window()->windowHandle()->startSystemResize(edges);
+            event->accept();
+            return;
+        }
+    }
+    QWidget::mousePressEvent(event);
+}
+
+void GroundStationView::mouseMoveEvent(QMouseEvent *event){
+    const Qt::Edges edges = edgesAt(event->pos());
+    if ((edges & Qt::LeftEdge && edges & Qt::TopEdge) || (edges & Qt::RightEdge && edges & Qt::BottomEdge)) {
+        setCursor(Qt::SizeFDiagCursor);
+    } else if ((edges & Qt::RightEdge && edges & Qt::TopEdge) || (edges & Qt::LeftEdge && edges & Qt::BottomEdge)) {
+        setCursor(Qt::SizeBDiagCursor);
+    } else if (edges & Qt::LeftEdge || edges & Qt::RightEdge) {
+        setCursor(Qt::SizeHorCursor);
+    } else if (edges & Qt::TopEdge || edges & Qt::BottomEdge) {
+        setCursor(Qt::SizeVerCursor);
+    } else {
+        unsetCursor();
+    }
+    QWidget::mouseMoveEvent(event);
 }
 
 void GroundStationView::start(const std::string &host, int port){

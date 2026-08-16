@@ -30,6 +30,8 @@ class GroundStationView: public QWidget{
     protected:
         void resizeEvent(QResizeEvent* event) override;
         bool eventFilter(QObject *watched, QEvent *event) override;
+        void mousePressEvent(QMouseEvent* event) override;
+        void mouseMoveEvent(QMouseEvent* event) override;
 
     private:
         WaypointModel *waypointModel_ = nullptr;
@@ -63,6 +65,7 @@ class GroundStationView: public QWidget{
         void positionMissionPanel();
         void tickFlightTime();
         void tickMockJetsonStats();
+        Qt::Edges edgesAt(const QPoint &pos) const;
 };
 
 #endif // GROUND_STATION_VIEW_HPP

@@ -8,7 +8,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets WebSockets Quick QuickWidgets Positioning Location Charts)
+find_package(Qt6 REQUIRED COMPONENTS Widgets WebSockets Quick QuickWidgets Positioning Location Charts Svg)
 
 add_executable(groundstation
     src/main.cpp
@@ -61,6 +61,7 @@ target_link_libraries(groundstation PRIVATE
     Qt6::Positioning
     Qt6::Location
     Qt6::Charts
+    Qt6::Svg
     PkgConfig::GST
 )
 

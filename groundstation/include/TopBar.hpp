@@ -23,9 +23,16 @@ class TopBar: public QWidget{
             void armToggled();
             void chartsToggled();
 
+    protected:
+        void mousePressEvent(QMouseEvent* event) override;
+        void mouseDoubleClickEvent(QMouseEvent* event) override;
+
     private:
         QPushButton* armButton_ = nullptr;
         QPushButton* chartsButton_ = nullptr;
+        QPushButton* minimizeButton_ = nullptr;
+        QPushButton* maximizeButton_ = nullptr;
+        QPushButton* closeButton_ = nullptr;
         QLabel* linkLabel_ = nullptr;
         QLabel* satLabel_ = nullptr;
         QLabel* tempLabel_ = nullptr;
@@ -33,7 +40,8 @@ class TopBar: public QWidget{
         QLabel* titleLabel_ = nullptr;
         QLabel* vehicleLabel_ = nullptr;
         QHBoxLayout* layout_ = nullptr;
-        
+
+        void toggleMaximized();
 };
 
 #endif // TOP_BAR_HPP

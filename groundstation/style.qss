@@ -7,6 +7,8 @@
 
 #groundStationView {
     background: #05070a;
+    border: 1px solid #2a333b;
+    border-radius: 12px;
 }
 
 /* ---- Panel chrome (shared by every floating panel) ---- */
@@ -16,7 +18,10 @@
     border-radius: 12px;
 }
 #topBar {
-    border-radius: 0;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
     border-left: none;
     border-right: none;
     border-top: none;
@@ -89,6 +94,36 @@
 }
 #monoReadout[connected="true"] {
     color: #46c88c;
+}
+
+#winControlButton {
+    font-family: "IBM Plex Mono";
+    font-size: 13px;
+    color: #8fa3b0;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 10px;
+    margin-left: 2px;
+}
+#winControlButton:hover {
+    background: #1c242a;
+    color: #e7edf2;
+}
+#winCloseButton {
+    font-family: "IBM Plex Mono";
+    font-size: 14px;
+    color: #8fa3b0;
+    background: transparent;
+    border: none;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: 6px;
+    padding: 5px 10px;
+    margin-left: 2px;
+}
+#winCloseButton:hover {
+    background: #e2685a;
+    color: white;
 }
 
 /* ---- Left rail ---- */

@@ -22,9 +22,14 @@ int main(int argc, char *argv[]){
     }
 
     QMainWindow mainWindow;
+    mainWindow.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+    mainWindow.setAttribute(Qt::WA_TranslucentBackground);
+    mainWindow.setMinimumSize(900, 600);
+
     GroundStationView *view = new GroundStationView();
     mainWindow.setCentralWidget(view);
     view->start("127.0.0.1", 5600);
+    mainWindow.resize(1400, 900);
     mainWindow.show();
     return app.exec();
 }
