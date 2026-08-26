@@ -1,5 +1,5 @@
 # SkylarkOS
-> End-to-end real-time perception-to-control system running at ~11ms latency (62 FPS) on NVIDIA Jetson. ROS2-based autonomous UAV operating system with real-time perception, multi-object tracking, owner identification, gesture control, and live video streaming — built for NVIDIA Jetson edge deployment. 
+> End-to-end real-time perception-to-control system running at ~11ms latency (60 FPS) on NVIDIA Jetson. ROS2-based autonomous UAV operating system with real-time perception, multi-object tracking, owner identification, gesture control, and live video streaming — built for NVIDIA Jetson edge deployment. 
 
 ---
 
@@ -22,13 +22,12 @@ SkylarkOS is a end-to-end real-time perception and control system for autonomous
 
 | Stage | Latency | Notes |
 |---|---|---|
-| YOLO11n detection | 3.2ms | TensorRT FP16, 640×640 |
+| MobileNetV2-SSD detection | 3.2ms | TensorRT FP16, 640×640 |
 | SORT tracking | 0.8ms | CPU, Kalman + Hungarian |
 | OSNet ReID | 2.1ms | TensorRT FP16, 256×128 crop |
 | YOLO11n-pose | 3.8ms | TensorRT FP16, 640×640 bbox crop |
-| Sparse stereo disparity | 0.6ms | SGBM on bbox ROI only (~150×300px) |
 | End-to-end pipeline | ~11ms | Camera → velocity setpoint |
-| Sustained throughput | 62fps | 720p, all nodes active, 25W |
+| Sustained throughput | 60fps | 720p, all nodes active, 25W |
 
 > SITL validation (WSL2, CPU-only ONNX Runtime): full perception pipeline running at ~25-30fps on Intel i5-9400. Face lock, ReID enrollment, gesture detection, and owner following confirmed end-to-end.
 
@@ -124,9 +123,6 @@ Native ROS2 bridge — PX4 topics appear directly in the ROS2 graph with zero tr
 
 **Why SORT over DeepSORT?**
 SORT runs entirely on CPU in <1ms per frame, leaving the full GPU budget for neural inference. DeepSORT's appearance model is replaced by the separate ReID stage (OSNet) which only runs on the locked owner, not all tracks — significantly cheaper.
-
-**Why sparse stereo over dense depth map?**
-Only one depth value is needed — the distance to the locked owner. Computing StereoSGBM over the full 720p frame would consume ~5-8ms of GPU time competing with inference. Restricting disparity to the bbox ROI (~150×300px) drops this to <1ms, keeping the full pipeline within the 16.7ms budget for 60fps.
 
 **Why ReID re-enrollment per flight?**
 OSNet appearance embeddings are sensitive to lighting and clothing. Re-enrolling from live crops each flight (rather than a stored embedding) adapts to the owner's current appearance, making the identity lock robust to outfit changes between sessions.
